@@ -397,13 +397,9 @@ function updateTabbar(){
       <a class="tab" data-tab="account" href="#/account"><i class="fa-regular fa-user"></i><span>Account</span></a>`;
   }else{
     tb.classList.add("four-tabs");
-    tb.innerHTML=`
-      <a class="tab" data-tab="home" href="#/home"><i class="fa-solid fa-house"></i><span>Home</span></a>
-      <a class="tab" data-tab="shop" href="#/shop"><i class="fa-solid fa-magnifying-glass"></i><span>Shop</span></a>
-      <a class="tab" data-tab="cart" href="#/cart"><i class="fa-solid fa-cart-shopping"></i><span>Cart</span></a>
-      <a class="tab" data-tab="account" href="#/account"><i class="fa-regular fa-user"></i><span>Account</span></a>`;
-  }
-}
+    let HOME_MODE='food';
+const FOOD_CATS=["Pizza","Burgers","Biryani","Snacks","Fast Food","South Indian","North Indian","Chinese","Beverages","Desserts"];
+const GROCERY_CATS=["Fresh Vegetables","Fresh Fruits","Dairy, Bread & Eggs","Meat & Seafood","Atta, Rice & Dal","Masalas","Oils & Ghee","Cereals & Breakfast","Chips & Namkeens","Cold Drinks & Juices","Ice Creams & Frozen Food","Chocolates","Household Essentials","Personal Care"];
 
 function HomeView(){
   setTopbar("Home",false);setActiveTab("home");
@@ -414,38 +410,101 @@ function HomeView(){
     else if(app.status==='Pending') notifHtml=`<div class="notif-banner warning"><i class="fa-solid fa-clock" style="color:#F59E0B"></i><div><strong>Application Pending</strong> — Your delivery partner application is under review.</div></div>`;
     else if(app.status==='Rejected') notifHtml=`<div class="notif-banner" style="background:#FEE2E2;border-color:#FECACA"><i class="fa-solid fa-circle-xmark" style="color:#E11D48"></i><div><strong>Application Rejected</strong> — Unfortunately your application was not approved.</div></div>`;
   }
-  
-  const lockBanner = CONFIG.storeLocked ? `<div class="lock-banner"><i class="fa-solid fa-lock"></i> Store is currently closed. We are not accepting orders at this time.</div>` : '';
+  const lockBanner=CONFIG.storeLocked?`<div class="lock-banner"><i class="fa-solid fa-lock"></i> Store is currently closed. We are not accepting orders at this time.</div>`:'';
+  const cats=HOME_MODE==='food'?FOOD_CATS:GROCERY_CATS;
+  const searchPlaceholder=HOME_MODE==='food'?'Search for food, restaurants and dishes':'Search for products and groceries';
 
   $("#view").innerHTML=`
     ${lockBanner}
-    <section style="padding:14px">
-      ${notifHtml}
-      <div class="card" style="overflow:hidden">
-        ${HERO_IMAGE_URL?`<div class="hero-img"><img src="${HERO_IMAGE_URL}" alt="Hero"/></div>`:''}
-        <div class="pad" style="padding:16px">
-          <h2 style="margin:0 0 6px;font-family:Poppins;color:var(--accentDark)">Fresh & Delicious. Every Time.</h2>
-          <p class="muted" style="margin:0 0 12px">Authentic Indian cuisine delivered in ${escapeHtml(USER_CITY)}.</p>
-          <button class="btn" onclick="routeTo('#/shop')"><i class="fa-solid fa-utensils"></i> Order Now</button>
+    <section style="padding:0 0 14px">
+      <div style="background:var(--accent);padding:14px 14px 18px;border-radius:0 0 20px 20px;color:#fff">
+        ${notifHtml}
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+          <div>
+            <div style="font-weight:800;font-size:20px;font-family:Poppins">ZESTO</div>
+            <div style="font-size:12px;opacity:.9"><i class="fa-solid fa-location-dot"></i> ${escapeHtml(USER_CITY)}</div>
+          </div>
+          <a href="#/account" class="icon-round" style="background:rgba(255,255,255,.2);color:#fff"><i class="fa-regular fa-user"></i></a>
+        </div>
+        <div style="display:flex;background:rgba(255,255,255,.15);border-radius:999px;padding:4px;margin-bottom:12px">
+          <button class="mode-btn" data-mode="food" style="flex:1;border:none;padding:8px;border-radius:999px;font-weight:700;cursor:pointer;background:${HOME_MODE==='food'?'#fff':'transparent'};color:${HOME_MODE==='food'?'var(--accentDark)':'#fff'}"><i class="fa-solid fa-utensils"></i> Food</button>
+          <button class="mode-btn" data-mode="grocery" style="flex:1;border:none;padding:8px;border-radius:999px;font-weight:700;cursor:pointer;background:${HOME_MODE==='grocery'?'#fff':'transparent'};color:${HOME_MODE==='grocery'?'var(--accentDark)':'#fff'}"><i class="fa-solid fa-basket-shopping"></i> Grocery</button>
+        </div>
+        <div style="background:#fff;border-radius:12px;padding:10px 12px;display:flex;align-items:center;gap:10px">
+          <i class="fa-solid fa-magnifying-glass" style="color:#9CA3AF"></i>
+          <input id="home-search" placeholder="${searchPlaceholder}" style="border:none;flex:1;outline:none;color:#111">
         </div>
       </div>
-      <h3 style="margin:16px 4px 8px;font-family:Poppins;color:var(--accentDark)">Featured in ${escapeHtml(USER_CITY)}</h3>
-      <div class="grid" id="home-grid"></div>
-      
-      ${!app ? `
-      <div class="join-banner">
-        <h3><i class="fa-solid fa-motorcycle"></i> Become a Delivery Partner</h3>
-        <p>Earn money on your schedule. Join our delivery team today!</p>
-        <button class="btn" style="background:#fff;color:var(--accentDark)" onclick="routeTo('#/join-team')">Join Our Team</button>
-      </div>` : ''}
 
-      <div class="support-footer"><a href="#/contact-support"><i class="fa-solid fa-headset"></i> Need Help? Contact Support</a></div>
+      <div style="padding:14px 4px 0;display:flex;gap:14px;overflow-x:auto" id="home-cats">
+        ${cats.map(c=>`<div class="cat-pill" data-cat="${escapeHtml(c)}" style="flex-shrink:0;text-align:center;cursor:pointer;width:64px">
+          <div style="width:56px;height:56px;border-radius:50%;background:var(--accentLight);display:flex;align-items:center;justify-content:center;color:var(--accentDark);font-size:20px;margin:0 auto 4px"><i class="fa-solid fa-bowl-food"></i></div>
+          <div style="font-size:11px;font-weight:600">${escapeHtml(c)}</div>
+        </div>`).join("")}
+      </div>
+
+      <div style="padding:14px">
+        <div class="card" style="overflow:hidden;margin-bottom:14px">
+          ${HERO_IMAGE_URL?`<div class="hero-img"><img src="${HERO_IMAGE_URL}" alt="Hero"/></div>`:''}
+          <div class="pad" style="padding:16px">
+            <h2 style="margin:0 0 6px;font-family:Poppins;color:var(--accentDark)">Fresh & Delicious. Every Time.</h2>
+            <p class="muted" style="margin:0 0 12px">Authentic Indian cuisine delivered in ${escapeHtml(USER_CITY)}.</p>
+            <button class="btn" onclick="routeTo('#/shop')"><i class="fa-solid fa-utensils"></i> Order Now</button>
+          </div>
+        </div>
+
+        <h3 style="margin:0 0 8px;font-family:Poppins;color:var(--accentDark)">Recommended for you</h3>
+        <div class="grid" id="home-grid"></div>
+
+        ${!app?`
+        <div class="join-banner">
+          <h3><i class="fa-solid fa-motorcycle"></i> Become a Delivery Partner</h3>
+          <p>Earn money on your schedule. Join our delivery team today!</p>
+          <button class="btn" style="background:#fff;color:var(--accentDark)" onclick="routeTo('#/join-team')">Join Our Team</button>
+        </div>`:''}
+
+        <div class="support-footer"><a href="#/contact-support"><i class="fa-solid fa-headset"></i> Need Help? Contact Support</a></div>
+      </div>
     </section>`;
+
+  $$(".mode-btn").forEach(btn=>{btn.onclick=()=>{HOME_MODE=btn.dataset.mode;HomeView();};});
+
+  $$(".cat-pill").forEach(el=>{
+    el.onclick=()=>{
+      const cat=el.dataset.cat;
+      const grid=$("#home-grid");
+      const list=PRODUCTS.filter(p=>p.category===cat);
+      grid.innerHTML=list.length?list.map(p=>ProductCard(p)).join(""):`<div class="muted" style="text-align:center;grid-column:1/3">Koi product nahi mila is category mein.</div>`;
+      attachProductCardHandlers(grid);
+    };
+  });
+
+  const searchInput=$("#home-search");
+  if(searchInput){
+    searchInput.oninput=(e)=>{
+      const term=e.target.value.toLowerCase();
+      const grid=$("#home-grid");
+      const relevantCats=HOME_MODE==='food'?FOOD_CATS:GROCERY_CATS;
+      const list=PRODUCTS.filter(p=>relevantCats.includes(p.category)&&(!term||p.name.toLowerCase().includes(term)));
+      grid.innerHTML=list.length?list.map(p=>ProductCard(p)).join(""):`<div class="muted" style="text-align:center;grid-column:1/3">Koi product nahi mila.</div>`;
+      attachProductCardHandlers(grid);
+    };
+  }
+
   const grid=$("#home-grid");
-  const feat=PRODUCTS.slice(0,6);
+  const relevantCats=HOME_MODE==='food'?FOOD_CATS:GROCERY_CATS;
+  const feat=PRODUCTS.filter(p=>relevantCats.includes(p.category)).slice(0,10);
   if(feat.length>0){grid.innerHTML=feat.map(p=>ProductCard(p)).join("");attachProductCardHandlers(grid)}
-  else grid.innerHTML=`<div class="muted" style="text-align:center;grid-column:1/3">No featured products yet.</div>`;
+  else grid.innerHTML=`<div class="muted" style="text-align:center;grid-column:1/3">Is section mein abhi koi product nahi hai. Jald hi aayega!</div>`;
+                                                                                                                                                                                                                 }tb.innerHTML=`
+      <a class="tab" data-tab="home" href="#/home"><i class="fa-solid fa-house"></i><span>Home</span></a>
+      <a class="tab" data-tab="shop" href="#/shop"><i class="fa-solid fa-magnifying-glass"></i><span>Shop</span></a>
+      <a class="tab" data-tab="cart" href="#/cart"><i class="fa-solid fa-cart-shopping"></i><span>Cart</span></a>
+      <a class="tab" data-tab="account" href="#/account"><i class="fa-regular fa-user"></i><span>Account</span></a>`;
+  }
 }
+
+
 
 function ShopView(){
   setTopbar("Shop",false);setActiveTab("shop");
