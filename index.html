@@ -514,17 +514,27 @@ function ShopView(){
   setTopbar("Shop",false);setActiveTab("shop");
   const cats=[...new Set(PRODUCTS.map(p=>p.category).filter(Boolean))];
   const lockBanner = CONFIG.storeLocked ? `<div class="lock-banner"><i class="fa-solid fa-lock"></i> Store is currently closed.</div>` : '';
-  
+
   $("#view").innerHTML=`
     ${lockBanner}
-    <section style="padding:14px">
-      <div class="filters"><button class="chip active" data-filter="all">All</button>${cats.map(c=>`<button class="chip" data-filter="${escapeHtml(c)}">${escapeHtml(c)}</button>`).join("")}</div>
-      <div class="card" style="padding:10px 12px;margin:8px 0 12px;display:flex;gap:10px;align-items:center">
-        <i class="fa-solid fa-magnifying-glass" style="color:#9CA3AF"></i>
-        <input id="shop-search" placeholder="Search products..." style="border:none;padding:10px 0;outline:none">
+    <section style="padding:0 0 14px">
+      <div style="background:var(--accent);padding:14px 14px 18px;border-radius:0 0 20px 20px;color:#fff">
+        <div style="font-weight:800;font-size:18px;font-family:Poppins;margin-bottom:10px"><i class="fa-solid fa-magnifying-glass"></i> Find what you're craving</div>
+        <div style="background:#fff;border-radius:12px;padding:10px 12px;display:flex;align-items:center;gap:10px">
+          <i class="fa-solid fa-magnifying-glass" style="color:#9CA3AF"></i>
+          <input id="shop-search" placeholder="Search products..." style="border:none;flex:1;outline:none;color:#111">
+        </div>
       </div>
-      <div class="grid" id="shop-grid"></div>
-      <div class="support-footer"><a href="#/contact-support"><i class="fa-solid fa-headset"></i> Need Help? Contact Support</a></div>
+
+      <div style="padding:14px 4px 0;display:flex;gap:8px;overflow-x:auto" class="filters">
+        <button class="chip active" data-filter="all" style="flex-shrink:0;border-radius:999px;padding:8px 16px;border:1px solid var(--line);background:var(--accent);color:#fff;font-weight:600">All</button>
+        ${cats.map(c=>`<button class="chip" data-filter="${escapeHtml(c)}" style="flex-shrink:0;border-radius:999px;padding:8px 16px;border:1px solid var(--line);background:#fff;color:#111;font-weight:600">${escapeHtml(c)}</button>`).join("")}
+      </div>
+
+      <div style="padding:14px">
+        <div class="grid" id="shop-grid"></div>
+        <div class="support-footer"><a href="#/contact-support"><i class="fa-solid fa-headset"></i> Need Help? Contact Support</a></div>
+      </div>
     </section>`;
   const grid=$("#shop-grid");let activeFilter="all";
   const draw=(term="")=>{
@@ -534,7 +544,11 @@ function ShopView(){
   };
   draw();
   $("#shop-search").addEventListener("input",e=>draw(e.target.value));
-  $$(".filters .chip").forEach(btn=>btn.addEventListener("click",()=>{$$(".filters .chip").forEach(b=>b.classList.remove("active"));btn.classList.add("active");activeFilter=btn.dataset.filter;draw($("#shop-search").value)}));
+  $$(".filters .chip").forEach(btn=>btn.addEventListener("click",()=>{
+    $$(".filters .chip").forEach(b=>{b.classList.remove("active");b.style.background="#fff";b.style.color="#111"});
+    btn.classList.add("active");btn.style.background="var(--accent)";btn.style.color="#fff";
+    activeFilter=btn.dataset.filter;draw($("#shop-search").value)
+  }));
 }
 
 function ProductCard(p){
@@ -676,7 +690,12 @@ function CartView(){
       `<button class="btn btn-block" disabled style="background:#ccc;color:#666"><i class="fa-solid fa-lock"></i> Store Currently Closed</button>` : 
       `<button class="btn btn-block" id="to-checkout"><i class="fa-solid fa-lock"></i> Proceed to Checkout</button>`;
 
-  $("#view").innerHTML=`<section style="padding:14px">${CART.length===0?`<div class="card pad" style="text-align:center;padding:26px"><div style="font-size:48px;color:var(--accent);margin-bottom:12px"><i class="fa-solid fa-cart-shopping"></i></div><div class="muted">Your cart is empty.</div><div style="margin-top:10px"><a class="btn btn-outline" href="#/shop">Browse Products</a></div></div>`:`
+  $("#view").innerHTML=`
+    <div style="background:var(--accent);padding:16px 14px;border-radius:0 0 20px 20px;color:#fff;margin-bottom:14px">
+      <div style="font-weight:800;font-size:20px;font-family:Poppins"><i class="fa-solid fa-cart-shopping"></i> My Cart</div>
+      <div style="opacity:.9;font-size:13px;margin-top:2px">${CART.length} item${CART.length===1?'':'s'} in your cart</div>
+    </div>
+    <section style="padding:0 14px 14px">${CART.length===0?`<div class="card pad" style="text-align:center;padding:26px"><div style="font-size:48px;color:var(--accent);margin-bottom:12px"><i class="fa-solid fa-cart-shopping"></i></div><div class="muted">Your cart is empty.</div><div style="margin-top:10px"><a class="btn btn-outline" href="#/shop">Browse Products</a></div></div>`:`
     ${isLocked ? `<div class="lock-banner" style="border-radius:10px; margin-bottom:12px;"><i class="fa-solid fa-lock"></i> Store is currently closed.</div>` : ''}
     <div class="cart-list" id="cart-list">${CART.map(r=>CartItem(r)).join("")}</div>
     <div class="card sticky-sheet" style="margin-top:16px">
@@ -698,7 +717,7 @@ function CartItem(it){
   const mrp = getMrp(p);
   const pShipping = getShipping(p);
   const iT= pPrice*it.qty + pShipping;
-  return`<div class="cart-item" data-id="${it.productId}"><img src="${p.imageUrls[0]||""}" alt="${escapeHtml(p.name)}"><div><div style="font-weight:700">${escapeHtml(p.name)}</div><div class="price-line" style="margin-top:4px"><div style="font-weight:700;color:var(--accentDark)">${money(iT)}</div>${mrp?`<div class="strike">${money(mrp*it.qty)}</div>`:""}</div><div class="qty"><button class="circle-btn" data-dec>-</button><div>${it.qty}</div><button class="circle-btn primary" data-inc>+</button><button class="circle-btn" data-rem><i class="fa-regular fa-trash-can"></i></button></div></div></div>`;
+  return`<div class="cart-item" data-id="${it.productId}" style="background:#fff;border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow-sm);margin-bottom:10px;padding:10px"><img src="${p.imageUrls[0]||""}" alt="${escapeHtml(p.name)}" style="width:64px;height:64px;object-fit:cover;border-radius:10px"><div><div style="font-weight:700">${escapeHtml(p.name)}</div><div class="price-line" style="margin-top:4px"><div style="font-weight:700;color:var(--accentDark)">${money(iT)}</div>${mrp?`<div class="strike">${money(mrp*it.qty)}</div>`:""}</div><div class="qty"><button class="circle-btn" data-dec>-</button><div>${it.qty}</div><button class="circle-btn primary" data-inc>+</button><button class="circle-btn" data-rem><i class="fa-regular fa-trash-can"></i></button></div></div></div>`;
 }
 function attachCartHandlers(){$$("#cart-list .cart-item").forEach(item=>{const pid=item.dataset.id;item.querySelector("[data-inc]").addEventListener("click",()=>changeQty(pid,+1));item.querySelector("[data-dec]").addEventListener("click",()=>changeQty(pid,-1));item.querySelector("[data-rem]").addEventListener("click",()=>removeFromCart(pid))})}
 function addToCart(pid,size,qty){const idx=CART.findIndex(x=>x.productId===pid);if(idx>-1)CART[idx].qty+=qty;else CART.push({productId:pid,size,qty});saveCart()}
@@ -1191,8 +1210,16 @@ function AccountView(){
   let notifHtml='';
   if(app&&app.status==='Approved')notifHtml=`<div class="notif-banner" style="margin-top:12px"><i class="fa-solid fa-circle-check" style="color:var(--success)"></i><div><strong>Delivery Partner Active</strong> — <a href="#/delivery/dashboard" style="color:var(--accent);font-weight:700">Go to Dashboard &rarr;</a></div></div>`;
   $("#view").innerHTML=`
-    <section style="padding:14px">
-      <div class="card pad"><div style="display:flex;align-items:center;gap:12px"><div class="avatar"><img src="${PROFILE.avatar||'https://i.pravatar.cc/200?u=sf'}" alt="avatar"></div><div><div style="font-weight:700;font-size:18px;color:var(--accentDark)">${escapeHtml(PROFILE.name||'Guest')}</div><div class="muted">${escapeHtml(PROFILE.email||'')}</div><div class="chip" style="font-size:10px; padding:2px 8px; margin-top:4px;">${escapeHtml(USER_CITY||'City Not Selected')}</div></div></div></div>
+    <section style="padding:0 0 14px">
+      <div style="background:var(--accent);padding:20px 14px 24px;border-radius:0 0 20px 20px;color:#fff;display:flex;align-items:center;gap:14px">
+        <div class="avatar" style="width:64px;height:64px;border:3px solid rgba(255,255,255,.5);border-radius:50%;overflow:hidden;flex-shrink:0"><img src="${PROFILE.avatar||'https://i.pravatar.cc/200?u=sf'}" alt="avatar" style="width:100%;height:100%;object-fit:cover"></div>
+        <div>
+          <div style="font-weight:800;font-size:19px;font-family:Poppins">${escapeHtml(PROFILE.name||'Guest')}</div>
+          <div style="opacity:.9;font-size:13px">${escapeHtml(PROFILE.email||'')}</div>
+          <div style="display:inline-block;margin-top:6px;background:rgba(255,255,255,.2);border-radius:999px;padding:3px 10px;font-size:11px"><i class="fa-solid fa-location-dot"></i> ${escapeHtml(USER_CITY||'City Not Selected')}</div>
+        </div>
+      </div>
+      <div style="padding:14px">
       ${notifHtml}
       <div class="card pad" style="margin-top:12px">
         <a href="#/profile" class="row" style="padding:10px 0"><div><i class="fa-regular fa-user" style="color:var(--accent)"></i> Edit Profile</div><i class="fa-solid fa-chevron-right"></i></a><div class="sep"></div>
@@ -1201,6 +1228,7 @@ function AccountView(){
         <div class="row" style="padding:10px 0; cursor:pointer;" onclick="showCityModal()"><div><i class="fa-solid fa-location-dot" style="color:var(--accent)"></i> Change City</div><i class="fa-solid fa-chevron-right"></i></div><div class="sep"></div>
         <a href="#/join-team" class="row" style="padding:10px 0"><div><i class="fa-solid fa-motorcycle" style="color:var(--accent)"></i> Delivery Partner</div><i class="fa-solid fa-chevron-right"></i></a><div class="sep"></div>
         <a href="#/contact-support" class="row" style="padding:10px 0"><div><i class="fa-solid fa-headset" style="color:var(--accent)"></i> Contact Support</div><i class="fa-solid fa-chevron-right"></i></a>
+      </div>
       </div>
     </section>`;
 }
