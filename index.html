@@ -1697,7 +1697,18 @@ function render(){
 }
 
 // Initializing the app - Loader starts immediately to prevent blank screen
-(function init(){ showLoader(); checkCitySelection(); checkAndRender(); })();
+(function init() {
+  showLoader();
+
+  // App start होने पर हमेशा Home को Default बनाओ
+  const { parts } = parseRoute();
+  if (!parts.length || parts[0] === "account") {
+    history.replaceState(null, "", "#/home");
+  }
+
+  checkCitySelection();
+  checkAndRender();
+})();
 </script>
 </body>
 </html>
