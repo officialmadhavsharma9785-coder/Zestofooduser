@@ -1166,17 +1166,21 @@ const map = L.map(mapEl, {
     toast("Location Verified");
 
 },
-console.log("GPS ERROR", err);
+            err=>{
+ console.log("GPS ERROR", err);
 alert("GPS Error Code : " + err.code);
-              err=>{
-                    let errorMsg = "Could not get location.";
+              let errorMsg = "Could not get location.";
                     if(err.code === 1) errorMsg = "Location Permission Denied! Please allow location access in your device/browser settings.";
                     else if(err.code === 2) errorMsg = "Position Unavailable! Please turn on your device GPS.";
                     else if(err.code === 3) errorMsg = "Request Timed Out! Please try again.";
                     alert(errorMsg);
                     btn.innerHTML = `<i class="fa-solid fa-location-dot"></i> Try Again`;
                 },
-                {enableHighAccuracy: true} 
+                {
+    enableHighAccuracy: true,
+    timeout: 15000,
+    maximumAge: 0
+  }
             );
         } else {
             alert("Geolocation is not supported by your browser.");
