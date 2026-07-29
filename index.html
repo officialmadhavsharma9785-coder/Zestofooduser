@@ -1104,11 +1104,19 @@ function CheckoutView(){
   $("#ch-state").value=PROFILE.state||"";$("#ch-district").value=PROFILE.district||"";$("#ch-landmark").value=PROFILE.landmark||"";
   
   setTimeout(()=>{
-    const mapEl = document.getElementById('checkout-map');
-    if(mapEl && mapEl._leaflet_id) { mapEl._leaflet_id = null; }
-    
-    // Map with dragging disabled, strictly GPS based
-    const map=L.map('checkout-map', {
+    const mapEl = document.getElementById("checkout-map");
+
+if (!mapEl) {
+    console.warn("Checkout map container not found.");
+    return;
+}
+
+if (mapEl._leaflet_id) {
+    mapEl._leaflet_id = null;
+    mapEl.innerHTML = "";
+}
+
+const map = L.map(mapEl, {
         zoomControl: false, dragging: false, scrollWheelZoom: false, doubleClickZoom: false
     }).setView([20.5937,78.9629],5);
     
