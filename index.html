@@ -1203,9 +1203,22 @@ function zestoSaveOrderCache(uid){
 // Splash hidden by checkAndRender() - no timeout needed
 // Keeping this prevents the splash from showing properly for mobile/slow connections
 
-function showLoader(){$("#view").innerHTML=`<div class="loader" style="margin-top:60px;"><div class="premium-spinner"></div><div style="color:var(--accent);font-weight:600;margin-top:16px;">Loading Zesto...</div></div>`}
-function hideSplash(){const s=$("#splash-screen");if(s&&!s.dataset.hidden){s.dataset.hidden="1";s.style.opacity="0";setTimeout(()=>s.remove(),500)}}
-
+function hideSplash(){
+  // Only hide splash when catalog data is ready for catalog screens (home, shop, product, etc).
+  // Non-catalog screens (login, profile, account) don't need products, so show them immediately.
+  const route=parseRoute().parts[0]||"home";
+  const catalogScreens=["home","shop","product","offers","offer","cart"];
+  
+  // If viewing a screen that needs products, wait until products are loaded from Firebase/cache
+  if(catalogScreens.includes(route)&&!catalogBootComplete)return;
+  
+  const s=$("#splash-screen");
+  if(s&&!s.dataset.hidden){
+    s.dataset.hidden="1";
+    s.style.opacity="0";
+    setTimeout(()=>s.remove(),500);
+  }
+  }
 function showCityModal() {
     $("#city-list").innerHTML = ALLOWED_CITIES.map(c => `
         <div class="city-option" onclick="selectCity('${escapeHtml(c)}')">
