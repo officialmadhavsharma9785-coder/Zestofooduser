@@ -2933,25 +2933,9 @@ function OrderDetailView(orderId){
           const timerEl = document.getElementById(`order-detail-timer-${o.orderId}`);
           if(!timerEl) return;
           
+let intv;
           const updateTimer = () => {
               if(!document.getElementById(`order-detail-timer-${o.orderId}`)) return clearInterval(intv);
-              // Re-fetch live order data to get the latest prepTimeMinutes (vendor may have updated it)
-              const liveOrder = ORDERS.find(x => x.orderId === o.orderId) || o;
-              const currentTimer = liveOrder.prepTimeMinutes || liveOrder.deliveryTimer || 30;
-              const targetTime = liveOrder.createdAt + currentTimer * 60 * 1000;
-              const now = Date.now();
-              const diff = targetTime - now;
-              if(diff <= 0) {
-                  timerEl.textContent = "Almost there!";
-                  clearInterval(intv);
-              } else {
-                  const m = Math.floor(diff / 60000);
-                  const s = Math.floor((diff % 60000) / 1000);
-                  timerEl.textContent = `${m.toString().padStart(2,'0')}:${s.toString().padStart(2,'0')} Min`;
-              }
-          };
-          updateTimer();
-          const intv = setInterval(updateTimer, 1000);
       }, 100);
   }
 
