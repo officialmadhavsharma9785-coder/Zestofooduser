@@ -3149,7 +3149,8 @@ function render(){
   const isReload=nav&&nav.type==="reload";
   // A fresh app launch should always land on Home. A real browser refresh
   // keeps the exact current route (Account, Orders, Profile, etc.).
-  if(!location.hash || (!isReload && location.hash!=="#/home")){
+  // IMPORTANT: Only redirect to /home on fresh launch, never on reload
+  if(!location.hash){
     history.replaceState(null,"",location.pathname+location.search+"#/home");
   }
   zestoLoadCatalogCache();
