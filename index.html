@@ -2610,7 +2610,7 @@ function finalizeCOD(){
 function CODSuccessView(){
   setTopbar("Order Confirmed",true);setActiveTab("");
   const last=readLocal("sf_last_order",null);
-  $("#view").innerHTML=`<section class="success-wrap"><div class="check-anim"><i class="fa-solid fa-check" style="font-size:36px"></i></div><div class="confetti" id="confetti"></div><h2 style="font-family:Poppins;margin:12px 0 8px;color:var(--accentDark)">Order Confirmed!</h2><div class="muted" style="text-align:center">Order <b>#${escapeHtml(last?.orderId||"")}</b></div><div style="margin-top:16px;display:flex;gap:10px;flex-direction:column;width:100%;max-width:480px"><a class="btn btn-block" href="#/confirm">Track My Order</a><a class="btn btn-outline btn-block" href="#/shop">Back to Shop</a></div></section>`;
+$(\"#view\").innerHTML=`<section class=\"success-wrap\"><div class=\"check-anim\"><i class=\"fa-solid fa-check\" style=\"font-size:36px\"></i></div><div class=\"confetti\" id=\"confetti\"></div><h2 style=\"font-family:Poppins;margin:12px 0 8px;color:var(--accentDark)\">Order Confirmed!</h2><div class=\"muted\" style=\"text-align:center\">Order <b>#${escapeHtml(last?.orderId||\"\")}</b></div><div style=\"margin-top:16px;display:flex;gap:10px;flex-direction:column;width:100%;max-width:480px\"><a class=\"btn btn-block\" href=\"#/account/orders/${last?.firebaseKey||''}\">Track My Order</a><a class=\"btn btn-outline btn-block\" href=\"#/shop\">Back to Shop</a></div></section>`;
   popConfetti();playSuccessSound();
 }
 
