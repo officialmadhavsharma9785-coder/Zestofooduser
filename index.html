@@ -1210,7 +1210,14 @@ function hideSplash(){
   const catalogScreens=["home","shop","product","offers","offer","cart"];
   
   // If viewing a screen that needs products, wait until products are loaded from Firebase/cache
-  if(catalogScreens.includes(route)&&!catalogBootComplete)return;
+  // BUT: Set a maximum timeout so splash never blocks UI longer than 2.5 seconds
+  if(catalogScreens.includes(route)&&!catalogBootComplete){
+    if(!window._splashTimeoutSet){
+      window._splashTimeoutSet=true;
+      setTimeout(hideSplash,2500);
+    }
+    return;
+  }
   
   const s=$("#splash-screen");
   if(s&&!s.dataset.hidden){
