@@ -41,6 +41,20 @@ window.addEventListener('error',function(e){
     try{auth=firebase.auth();}catch(e){console.warn("Auth unavailable:",e);auth=false;}
     return auth||null;
   }
+  // Keep the Firebase login session across app/browser restarts.
+  // Safe fallback: if persistence is unavailable, the app continues normally.
+  function enableAuthPersistence(){
+    const a=getAuth();
+    if(!a || !firebase.auth || !firebase.auth.Auth) return Promise.resolve();
+    try{
+      return a.setPersistence(firebase.auth.Auth.Persistence.LOCAL).catch(e=>{
+        console.warn("Auth persistence unavailable:",e);
+      });
+    }catch(e){
+      console.warn("Auth persistence setup failed:",e);
+      return Promise.resolve();
+    }
+  }
 </script>
 <style>
 :root{
@@ -191,9 +205,6 @@ label{font-size:13px;color:#111;margin:10px 0 6px;display:block}
 .review-author{font-weight:600;font-size:13px;color:#111}
 .review-text{font-size:13px;color:#444;margin-top:4px}
 .review-date{font-size:11px;color:var(--muted);margin-top:4px}
-.join-banner{background:linear-gradient(135deg,var(--accent) 0%,var(--accentDark) 100%);color:#fff;border-radius:var(--radius);padding:20px;text-align:center;margin-top:16px}
-.join-banner h3{margin:0 0 6px;font-family:Poppins}
-.join-banner p{margin:0 0 12px;opacity:.9;font-size:14px}
 .support-footer{text-align:center;padding:20px 14px;margin-top:16px}
 .support-footer a{color:var(--accent);font-size:13px;font-weight:600;display:inline-flex;align-items:center;gap:6px}
 .contact-card{display:flex;align-items:center;gap:14px;padding:16px;border:1px solid var(--line);border-radius:14px;background:#fff;margin-bottom:10px;cursor:pointer;transition:box-shadow .2s}
@@ -205,10 +216,7 @@ label{font-size:13px;color:#111;margin:10px 0 6px;display:block}
 .profile-head{display:flex;flex-direction:column;align-items:center;gap:8px;margin:12px 0 16px}
 .avatar{width:96px;height:96px;border-radius:999px;overflow:hidden;border:3px solid var(--accent);box-shadow:0 2px 6px rgba(0,0,0,.08)}
 .avatar img{width:100%;height:100%;object-fit:cover}
-.notif-banner{background:#E6F7EE;border:1px solid #CFF7DF;border-radius:14px;padding:14px;margin-bottom:12px;display:flex;align-items:center;gap:12px}
-.notif-banner.warning{background:#FFF7E6;border-color:#FFE0A3}
-.notif-banner i{font-size:22px;flex-shrink:0}
-.map-container{width:100%;height:220px;border-radius:14px;overflow:hidden;border:1px solid var(--line);margin-top:8px}
+.map-container{width:100%;height:220px;border-radius:14px;overflow:hidden;border:1px solid var(--line);margin-top:8px;position:relative;z-index:1}
 .chatbot-icon{position:fixed;bottom:calc(96px + var(--safe));right:16px;z-index:50;width:56px;height:56px;border-radius:999px;background:var(--accent);color:var(--accentText);box-shadow:var(--shadow);display:flex;align-items:center;justify-content:center;font-size:24px;cursor:pointer;transition:transform .2s}
 .chatbot-icon:hover{transform:scale(1.05)}
 .chatbot-popup{position:fixed;bottom:0;left:0;right:0;width:100%;height:80vh;background:var(--surface);border:none;border-radius:var(--radius) var(--radius) 0 0;box-shadow:var(--shadow);display:flex;flex-direction:column;z-index:50;transform:translateY(100%);opacity:0;pointer-events:none;transition:transform .3s ease,opacity .3s ease;max-height:80vh}
@@ -312,10 +320,6 @@ label{font-size:13px;color:#111;margin:10px 0 6px;display:block}
 .city-option{display:flex;align-items:center;justify-content:center;gap:10px;padding:14px;border:1px solid var(--line);border-radius:14px;margin-bottom:10px;cursor:pointer;transition:all 0.2s;font-weight:600;}
 .city-option:hover{border-color:var(--accent);background:var(--accentLight);}
 
-/* Delivery Dashboard Earning Boxes */
-.earning-box{background:var(--accentLight);border:1px solid var(--accent);border-radius:10px;padding:12px;text-align:center;}
-.earning-box .amt{font-size:22px;font-weight:bold;color:var(--accentDark);font-family:Poppins}
-.earning-box .lbl{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px}
 
 /* Store Lock Banner */
 .lock-banner{background:#FEE2E2; color:#E11D48; padding:12px; text-align:center; font-weight:bold; border-bottom:1px solid #FECACA;}
@@ -397,6 +401,22 @@ label{font-size:13px;color:#111;margin:10px 0 6px;display:block}
 </div>
 
 <script>
+
+window.addEventListener('error',function(e){
+  function show(){
+    var box=document.createElement('div');
+    box.style.cssText='position:fixed;inset:0;z-index:999999;background:#1a1a1a;color:#fff;padding:20px;font-family:monospace;font-size:13px;overflow:auto;white-space:pre-wrap';
+    box.textContent='JS ERROR CAUGHT:\n\n'+(e.message||'')+'\n\nFile: '+(e.filename||'')+'\nLine: '+(e.lineno||'')+':'+(e.colno||'')+'\n\n'+(e.error&&e.error.stack||'');
+    (document.body||document.documentElement).appendChild(box);
+  }
+  if(document.body)show();else document.addEventListener('DOMContentLoaded',show);
+});
+
+
+
+
+
+
 const $=s=>document.querySelector(s);
 const $$=s=>Array.from(document.querySelectorAll(s));
 const money=n=>'\u20B9'+(n||0).toLocaleString("en-IN");
@@ -404,6 +424,12 @@ const uid=()=>'p_'+Math.random().toString(36).slice(2)+Date.now().toString(36);
 const readLocal=(k,d)=>{try{return JSON.parse(localStorage.getItem(k)||JSON.stringify(d))}catch{return d}};
 const writeLocal=(k,v)=>localStorage.setItem(k,JSON.stringify(v));
 const escapeHtml=(s="")=>s.replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[m]));
+
+/* ===== Reliability helpers ===== */
+function safeDateValue(v){const n=Number(v);return Number.isFinite(n)&&n>0?new Date(n):null}
+function safeDateText(v,mode="date"){const d=safeDateValue(v);if(!d)return"—";try{return mode==="datetime"?d.toLocaleString():d.toLocaleDateString()}catch(e){return"—"}}
+function isValidOrderRecord(o){return !!(o&&o.firebaseKey&&o.orderId&&Number.isFinite(Number(o.createdAt))&&o.customer&&typeof o.customer==='object'&&Number.isFinite(Number(o.customer.lat))&&Number.isFinite(Number(o.customer.lng))&&Array.isArray(o.items)&&o.items.length>0)}
+function prepRangeText(p){if(!p)return"";const min=Number(p.prepTimeMin||p.prepTimeMinutes||0);const max=Number(p.prepTimeMax||min);if(!Number.isFinite(min)||min<=0)return"";return max>min?`${min}–${max} Minutes`:`${min} Minutes`}
 
 /* ===== Avatar ===== */
 function avatarHtml(size,onColor){
@@ -435,44 +461,75 @@ function reverseGeocode(lat,lng){
       return a.suburb||a.neighbourhood||a.village||a.town||a.city_district||a.city||(d.display_name?d.display_name.split(',')[0]:"Current Location");
     }).catch(()=>"Current Location");
 }
-function fetchLiveLocation(showPopupOnFail){
+let ZESTO_LOCATION_PROMPT_SHOWN=readLocal("sf_loc_popup_shown",false);
+async function getGeoPermissionState(){
+  try{
+    if(!navigator.permissions||!navigator.permissions.query)return null;
+    const p=await navigator.permissions.query({name:"geolocation"});
+    return p.state;
+  }catch(e){return null}
+}
+async function fetchLiveLocation(showPopupOnFail){
   if(!navigator.geolocation){if(showPopupOnFail)alert("Geolocation is not supported on this device.");return}
+  const perm=await getGeoPermissionState();
+  if(perm==="denied"){
+    if(showPopupOnFail||!ZESTO_LOCATION_PROMPT_SHOWN){
+      ZESTO_LOCATION_PROMPT_SHOWN=true;writeLocal("sf_loc_popup_shown",true);showLocationPermissionPopup();
+    }
+    return;
+  }
   navigator.geolocation.getCurrentPosition(pos=>{
     const{latitude,longitude}=pos.coords;
-    writeLocal("sf_loc_popup_shown",false); // permission is granted — reset so a future revoke can prompt again
+    ZESTO_LOCATION_PROMPT_SHOWN=false;writeLocal("sf_loc_popup_shown",false);
     reverseGeocode(latitude,longitude).then(label=>{
       USER_LIVE_LOCATION={lat:latitude,lng:longitude,label,updatedAt:Date.now()};
       writeLocal("sf_live_location",USER_LIVE_LOCATION);
       updateHeaderLocationLabel();
-      toast("Location updated!");
     });
-  },err=>{
+  },async err=>{
     console.warn("Location error:",err);
-    const alreadyShown=readLocal("sf_loc_popup_shown",false);
-    if(showPopupOnFail||!alreadyShown){writeLocal("sf_loc_popup_shown",true);showLocationPermissionPopup()}
+    const state=await getGeoPermissionState();
+    if(state==="granted")return;
+    if(showPopupOnFail||!ZESTO_LOCATION_PROMPT_SHOWN){
+      ZESTO_LOCATION_PROMPT_SHOWN=true;writeLocal("sf_loc_popup_shown",true);showLocationPermissionPopup();
+    }
   },{enableHighAccuracy:true,maximumAge:60000,timeout:15000});
 }
-function showLocationPermissionPopup(){
-  if(document.getElementById("loc-permission-modal"))return;
-  const div=document.createElement("div");
-  div.id="loc-permission-modal";
-  div.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9997;display:flex;align-items:center;justify-content:center;padding:20px";
-  div.innerHTML=`<div class="card pad" style="max-width:340px;text-align:center">
-    <div style="width:60px;height:60px;background:var(--accentLight);border-radius:50%;display:grid;place-items:center;margin:0 auto 12px"><i class="fa-solid fa-location-crosshairs" style="font-size:26px;color:var(--accent)"></i></div>
-    <h3 style="margin:0 0 8px;font-family:Poppins;color:var(--accentDark)">Enable Location</h3>
-    <p class="muted" style="font-size:13px;margin:0 0 16px">Turn on location access for accurate delivery and a faster checkout experience.</p>
-    <button class="btn btn-block" id="loc-modal-enable">Enable Location</button>
-    <button class="btn btn-outline btn-block" style="margin-top:8px" id="loc-modal-dismiss">Not Now</button>
-  </div>`;
-  document.body.appendChild(div);
-  $("#loc-modal-enable").addEventListener("click",()=>{fetchLiveLocation(true);div.remove()});
-  $("#loc-modal-dismiss").addEventListener("click",()=>div.remove());
+const toast=msg=>{const t=$("#toast");if(!t)return;t.textContent=msg;t.classList.add("show");setTimeout(()=>t.classList.remove("show"),1400)};
+function requestLocationOnce(timeoutMs=12000){
+  return new Promise((resolve,reject)=>{
+    if(!navigator.geolocation){reject(new Error('Geolocation is not supported in this app.'));return}
+    let done=false;
+    const finish=(fn,v)=>{if(done)return;done=true;clearTimeout(timer);fn(v)};
+    const timer=setTimeout(()=>finish(reject,new Error('Location request timed out. Please enable device Location and try again.')),timeoutMs);
+    navigator.geolocation.getCurrentPosition(
+      p=>finish(resolve,{lat:p.coords.latitude,lng:p.coords.longitude,accuracy:p.coords.accuracy||null,updatedAt:Date.now()}),
+      e=>finish(reject,e),
+      {enableHighAccuracy:true,maximumAge:0,timeout:Math.min(10000,timeoutMs-1000)}
+    );
+  });
 }
-const toast=msg=>{const t=$("#toast");t.textContent=msg;t.classList.add("show");setTimeout(()=>t.classList.remove("show"),1400)};
 const routeTo=hash=>{location.hash=hash};
 
 let PROFILE=readLocal("sf_profile",{name:"",email:"",phone:"",address:"",pincode:"",city:"",state:"",district:"",landmark:"",avatar:"",isComplete:false,favorites:[]});
-const saveProfile=()=>writeLocal("sf_profile",PROFILE);
+const saveProfile=()=>{
+  writeLocal("sf_profile",PROFILE);
+  const a=getAuth();
+  if(a&&a.currentUser){
+    db.ref("users/"+a.currentUser.uid).update({
+      name:PROFILE.name||"",
+      email:PROFILE.email||"",
+      mobile:PROFILE.phone||"",
+      address:PROFILE.address||"",
+      pincode:PROFILE.pincode||"",
+      city:PROFILE.city||"",
+      state:PROFILE.state||"",
+      district:PROFILE.district||"",
+      landmark:PROFILE.landmark||"",
+      avatar:PROFILE.avatar||""
+    }).catch(e=>console.warn("[profile] Firebase profile sync failed:",e&&e.code,e&&e.message));
+  }
+};
 const hasCompleteProfile=()=>!!(PROFILE.name&&PROFILE.email&&PROFILE.phone&&PROFILE.address&&PROFILE.pincode);
 
 let PRODUCTS=[];
@@ -484,34 +541,128 @@ let SELECTED_OFFER=null;
 let MY_LOYALTY_RESET_AT=0;
 let authListenerInitialized=false;
 let authBootHandled=false;
+let privateListenersOwnerUid=null;
+let privateListenerGeneration=0;
+function stopPrivateListeners(){
+  try{
+    ordersRef.off('value');
+    ratingsRef.off('value');
+    offerRedemptionsRef.off('value');
+    referralCampaignsRef.off('value');
+    referralsRef.off('value');
+    referralSettingsRef.off('value');
+    rewardsRef.off('value');
+    milestonesRef.off('value');
+    loyaltyCardSettingsRef.off('value');
+    vendorsRef.off('value');
+  }catch(e){}
+  privateListenersOwnerUid=null;
+  privateListenerGeneration++;
+}
+function refreshPrivateListeners(){
+  const a=getAuth();
+  const uid=a&&a.currentUser?a.currentUser.uid:null;
+  if(!uid)return;
+  if(privateListenersOwnerUid===uid)return;
+  stopPrivateListeners();
+  privateListenersOwnerUid=uid;
+  const generation=privateListenerGeneration;
+  ordersRef.orderByChild('uid').equalTo(uid).on('value',snap=>{
+    if(generation!==privateListenerGeneration||!getAuth()?.currentUser||getAuth().currentUser.uid!==uid)return;
+    ORDERS=snap.val()?Object.values(snap.val()).filter(isValidOrderRecord):[];
+    ORDERS.sort((x,y)=>(y.createdAt||0)-(x.createdAt||0));
+    dataFetched.orders=true;
+    zestoSaveOrderCache(uid);
+    checkAndRender();checkAndAwardLoyalty();manageLiveTracking();checkReferralProgress();
+  },err=>{
+    if(generation!==privateListenerGeneration)return;
+    console.warn('user orders read failed:',err&&err.code,err&&err.message);
+    dataFetched.orders=true;
+    checkAndRender();
+  });
+  rewardsRef.orderByChild('uid').equalTo(uid).on('value',snap=>{
+    if(generation!==privateListenerGeneration)return;
+    const v=snap.val();REWARDS_ALL=v?Object.keys(v).map(k=>({id:k,...v[k]})):[];
+    checkAndAwardLoyalty();
+  },err=>{if(generation===privateListenerGeneration){console.warn('user rewards read failed:',err&&err.code,err&&err.message);REWARDS_ALL=[];checkAndAwardLoyalty();}});
+  offerRedemptionsRef.orderByChild('uid').equalTo(uid).on('value',snap=>{
+    if(generation!==privateListenerGeneration)return;
+    const v=snap.val();OFFER_REDEMPTIONS=v?Object.keys(v).map(k=>({id:k,...v[k]})):[];
+  },err=>{if(generation===privateListenerGeneration){console.warn('offer redemption read failed:',err&&err.code,err&&err.message);OFFER_REDEMPTIONS=[];}});
+  const mergeReferral=(snap)=>{
+    if(generation!==privateListenerGeneration)return;
+    const v=snap.val()||{};const rows=Object.keys(v).map(k=>({id:k,...v[k]}));const map=new Map(REFERRALS_ALL.map(x=>[x.id,x]));
+    rows.forEach(x=>map.set(x.id,x));REFERRALS_ALL=[...map.values()];checkReferralProgress();
+  };
+  referralsRef.orderByChild('referredUid').equalTo(uid).on('value',mergeReferral,()=>{});
+  referralsRef.orderByChild('referrerUid').equalTo(uid).on('value',mergeReferral,()=>{});
+  ratingsRef.on('value',snap=>{if(generation!==privateListenerGeneration)return;RATINGS=snap.val()?Object.values(snap.val()):[];dataFetched.ratings=true;checkAndRender()},err=>{if(generation===privateListenerGeneration){console.warn('ratings read failed:',err&&err.code,err&&err.message);RATINGS=[];dataFetched.ratings=true;checkAndRender();}});
+  referralCampaignsRef.on('value',snap=>{if(generation!==privateListenerGeneration)return;const v=snap.val();REFERRAL_CAMPAIGNS=v?Object.keys(v).map(k=>({id:k,...v[k]})):[];checkReferralProgress()});
+  referralSettingsRef.on('value',snap=>{if(generation!==privateListenerGeneration)return;REFERRAL_SETTINGS=snap.val()||{enabled:true}});
+  milestonesRef.on('value',snap=>{if(generation!==privateListenerGeneration)return;const v=snap.val();MILESTONES=v?Object.keys(v).map(k=>({id:k,...v[k]})).sort((a,b)=>(a.ordersRequired||0)-(b.ordersRequired||0)):[];checkAndAwardLoyalty()});
+  loyaltyCardSettingsRef.on('value',snap=>{if(generation!==privateListenerGeneration)return;LOYALTY_CARD_SETTINGS=Object.assign({enabled:true,title:"Loyalty Rewards",backgroundImage:"",rewardImage:""},snap.val()||{});zestoSaveCatalogCache();if(dataFetched.products)safeRender()});
+  vendorsRef.on('value',snap=>{if(generation!==privateListenerGeneration)return;const v=snap.val();VENDORS_ALL=v?Object.keys(v).map(k=>({uid:k,...v[k]})):[];zestoSaveCatalogCache();if(dataFetched.products)safeRender()});
+}
 function initAuthListenerOnce(){
   if(authListenerInitialized)return;
   authListenerInitialized=true;
+  enableAuthPersistence();
   const a=getAuth();
   if(!a){authBootHandled=true;return;}
   try{
     a.onAuthStateChanged(user=>{
+      // Firebase Auth is the ONLY source of truth for login state. AUTH_USER
+      // must always mirror firebase currentUser exactly — never derived from
+      // cached PROFILE/localStorage data.
       AUTH_USER=user;
       authBootHandled=true;
+      console.log("[auth] onAuthStateChanged fired. currentUser:",a.currentUser?a.currentUser.uid:null,"AUTH_USER:",AUTH_USER?AUTH_USER.uid:null);
       if(user){
+        zestoLoadCatalogCache();
+        zestoLoadOrderCache(user.uid);
+        rebindCoreCatalogListeners();
+        refreshPrivateListeners();
         db.ref('users/'+user.uid).once('value').then(snap=>{
           const u=snap.val();
           if(u&&u.blocked){
-            a.signOut();AUTH_USER=null;
-            alert("Your account has been blocked by the admin. Please contact support.");
-            if(typeof render==="function"&&dataFetched.products){routeTo("#/login");render()}
-            return;
+            console.log("[auth] Blocked account detected — forcing signOut and clearing session caches.");
+            a.signOut();
+            AUTH_USER=null;
+            PROFILE={name:"",email:"",phone:"",address:"",pincode:"",city:"",state:"",district:"",landmark:"",avatar:"",isComplete:false,favorites:[]};
+            try{localStorage.removeItem("sf_profile");}catch(e){}
+            alert("Your account has been blocked by the admin. Please contact support.");routeTo("#/login");return;
           }
-          if(u){PROFILE.name=u.name||PROFILE.name;PROFILE.email=u.email||PROFILE.email;PROFILE.phone=u.mobile||PROFILE.phone;PROFILE.isComplete=hasCompleteProfile();saveProfile();MY_LOYALTY_RESET_AT=u.loyaltyResetAt||0;PROFILE.referralCode=u.referralCode||PROFILE.referralCode}
+          if(u){
+  PROFILE.name=u.name||PROFILE.name;
+  PROFILE.email=u.email||PROFILE.email;
+  PROFILE.phone=u.mobile||PROFILE.phone;
+  PROFILE.address=u.address||PROFILE.address;
+  PROFILE.pincode=u.pincode||PROFILE.pincode;
+  PROFILE.city=u.city||PROFILE.city;
+  PROFILE.state=u.state||PROFILE.state;
+  PROFILE.district=u.district||PROFILE.district;
+  PROFILE.landmark=u.landmark||PROFILE.landmark;
+  PROFILE.avatar=u.avatar||PROFILE.avatar;
+  PROFILE.isComplete=hasCompleteProfile();
+  writeLocal("sf_profile",PROFILE);
+  MY_LOYALTY_RESET_AT=u.loyaltyResetAt||0;
+  PROFILE.referralCode=u.referralCode||PROFILE.referralCode;
+}
           checkAndAwardLoyalty();checkReferralProgress();
-          if(typeof render==="function"&&dataFetched.products)render();
-        }).catch(e=>console.warn("Profile load failed:",e));
+          if(typeof render==="function")render();
+        }).catch(e=>{console.warn("Profile load failed:",e);if(typeof render==="function")render()});
       }else{
-        if(typeof render==="function"&&dataFetched.products)render();
+        console.log("[auth] no user — clearing session-derived caches");
+        stopPrivateListeners();
+        stopCoreCatalogListeners();
+        dataFetched.orders=false;
+        ORDERS=[];RATINGS=[];OFFER_REDEMPTIONS=[];REFERRALS_ALL=[];REWARDS_ALL=[];
+        if(typeof render==="function")render();
       }
     });
   }catch(e){console.warn("Auth state listener failed:",e);authBootHandled=true;}
 }
+
 let CART=readLocal("sf_cart",[]);
 const saveCart=()=>{writeLocal("sf_cart",CART);renderCartBar()};
 function renderCartBar(){
@@ -536,15 +687,8 @@ let ALLOWED_CITIES = ['Jaipur', 'Delhi', 'Mumbai'];
 let CONFIG = {};
 
 function isProductAvailable(p){
-  if(p.outOfStock)return false;
-  if(p.vendorUid){
-    const v=VENDORS_ALL.find(x=>x.uid===p.vendorUid);
-    if(v&&v.status==='Approved'){
-      const status=v.availabilityStatus||(v.online?'Live':'Offline');
-      if(status!=='Live')return false;
-    }
-  }
-  return true;
+  // Preparing time is informational. Only Admin's Out of Stock flag blocks ordering.
+  return !!p && p.outOfStock!==true;
 }
 function sortByAvailability(list){
   return list.slice().sort((a,b)=>{
@@ -582,7 +726,7 @@ const cartTotal=()=>CART.reduce((a,c)=>{const p=PRODUCTS.find(x=>x.id===c.produc
 function isOrderCompleted(o){return (o.deliveryStatus==='Delivered'||o.status==='Delivered')&&!(o.status&&o.status.includes('Cancelled'))}
 
 /* ===== Order Status Flow ===== */
-const ORDER_STAGES=["New Order","Accepted","Preparing","Ready for Pickup","Picked Up","On the Way","Delivered"];
+const ORDER_STAGES=["New Order","Accepted","Preparing","Ready for Pickup","Assigned","Accepted by Delivery","Going to Restaurant","Arrived at Restaurant","Picked Up","On the Way","Near Customer","Delivered"];
 
 /* ===== Live Order Tracking ===== */
 function haversineKm(lat1,lng1,lat2,lng2){
@@ -619,7 +763,7 @@ function stopLiveTracking(){
 function manageLiveTracking(){
   if(!AUTH_USER||!PROFILE.email)return;
   const myEmail=PROFILE.email.toLowerCase();
-  const active=ORDERS.find(o=>o.deliveryBoy&&o.deliveryBoy.email&&o.deliveryBoy.email.toLowerCase()===myEmail&&(o.deliveryStatus==='Picked Up'||o.deliveryStatus==='On the Way'));
+  const active=ORDERS.find(o=>o.deliveryBoy&&o.deliveryBoy.email&&o.deliveryBoy.email.toLowerCase()===myEmail&&(o.deliveryStatus==='Picked Up'||o.deliveryStatus==='On the Way'||o.deliveryStatus==='Near Customer'||o.deliveryStatus==='Going to Restaurant'||o.deliveryStatus==='Arrived at Restaurant'));
   if(active)startLiveTracking(active.firebaseKey);
   else stopLiveTracking();
 }
@@ -627,10 +771,15 @@ function stageIndex(s){const i=ORDER_STAGES.indexOf(s);return i===-1?0:i}
 function delStatusClass(s){
   switch(s){
     case "Accepted":return"accepted";
+    case "Accepted by Delivery":return"accepted";
     case "Preparing":return"preparing";
     case "Ready for Pickup":return"ready";
+    case "Assigned":return"pending";
+    case "Going to Restaurant":return"pending";
+    case "Arrived at Restaurant":return"pending";
     case "Picked Up":return"picked";
     case "On the Way":return"ontheway";
+    case "Near Customer":return"ontheway";
     case "Delivered":return"delivered";
     default:return"pending";
   }
@@ -841,7 +990,7 @@ function checkAndAwardLoyalty(){
     if(r.status==='available'&&r.expiryAt&&now>r.expiryAt){
       rewardsRef.child(r.id).update({status:'expired'});
     }else if(r.status==='available'&&r.expiryAt&&r.expiryAt>now&&(r.expiryAt-now)<3*86400000){
-      notifyOnce('expiring-'+r.id,"Reward Expiring Soon",'"'+r.rewardName+'" expires on '+new Date(r.expiryAt).toLocaleDateString()+'.');
+      notifyOnce('expiring-'+r.id,"Reward Expiring Soon",'"'+r.rewardName+'" expires on '+safeDateText(r.expiryAt)+'.');
     }
   });
   const info=nextMilestoneInfo(completed);
@@ -998,7 +1147,7 @@ function inviteAndEarnCardHtml(){
   </div>`;
 }
 
-let ORDERS=[];let RATINGS=[];let DELIVERY_APPS=[];
+let ORDERS=[];let RATINGS=[];
 let HERO_IMAGE_URL="";let BANNER_TEXT="";let APP_LOGO_URL="";
 
 const productsRef=db.ref('products');
@@ -1010,17 +1159,73 @@ offerRedemptionsRef.on('value',snap=>{const v=snap.val();OFFER_REDEMPTIONS=v?Obj
 const ordersRef=db.ref('orders');
 const ratingsRef=db.ref('ratings');
 const appConfigRef=db.ref('config');
-const deliveryAppsRef=db.ref('deliveryApplications');
 
 let dataFetched={products:false,orders:false,ratings:false,config:false};
-setTimeout(()=>{
+let catalogBootComplete=false;
+/* ===== Fast boot cache ===== */
+function zestoLoadCatalogCache(){
+  try{
+    const c=JSON.parse(localStorage.getItem("zesto_catalog_cache_v2")||"null");
+    if(!c)return;
+    if(Array.isArray(c.products)&&c.products.length){PRODUCTS=c.products;dataFetched.products=true;catalogBootComplete=true}
+    if(Array.isArray(c.categories))CATEGORIES=c.categories;
+    if(Array.isArray(c.offers))OFFERS=c.offers;
+    if(c.config&&typeof c.config==="object"){
+      CONFIG=c.config;
+      HERO_IMAGE_URL=CONFIG.heroImage||HERO_IMAGE_URL;
+      BANNER_TEXT=CONFIG.bannerText||BANNER_TEXT;
+      APP_LOGO_URL=CONFIG.appLogo||APP_LOGO_URL;
+    }
+    if(Array.isArray(c.vendors))VENDORS_ALL=c.vendors;
+    if(c.loyaltySettings&&typeof c.loyaltySettings==="object")LOYALTY_CARD_SETTINGS=Object.assign(LOYALTY_CARD_SETTINGS,c.loyaltySettings);
+    if(Array.isArray(c.milestones))MILESTONES=c.milestones;
+  }catch(e){console.warn("[cache] catalog cache ignored:",e)}
+}
+function zestoSaveCatalogCache(){
+  try{localStorage.setItem("zesto_catalog_cache_v2",JSON.stringify({
+    products:PRODUCTS,categories:CATEGORIES,offers:OFFERS,config:CONFIG,
+    vendors:VENDORS_ALL,loyaltySettings:LOYALTY_CARD_SETTINGS,milestones:MILESTONES,
+    savedAt:Date.now()
+  }))}catch(e){console.warn("[cache] catalog cache write failed:",e)}
+}
+function zestoLoadOrderCache(uid){
+  if(!uid)return;
+  try{
+    const rows=JSON.parse(localStorage.getItem("zesto_orders_"+uid)||"null");
+    if(Array.isArray(rows)){ORDERS=rows;dataFetched.orders=true}
+  }catch(e){}
+}
+function zestoSaveOrderCache(uid){
+  if(!uid)return;
+  try{localStorage.setItem("zesto_orders_"+uid,JSON.stringify(ORDERS))}catch(e){}
+}
+
+// Splash hidden by checkAndRender() - no timeout needed
+// Keeping this prevents the splash from showing properly for mobile/slow connections
+
+function hideSplash(){
+  // Only hide splash when catalog data is ready for catalog screens (home, shop, product, etc).
+  // Non-catalog screens (login, profile, account) don't need products, so show them immediately.
+  const route=parseRoute().parts[0]||"home";
+  const catalogScreens=["home","shop","product","offers","offer","cart"];
+  
+  // If viewing a screen that needs products, wait until products are loaded from Firebase/cache
+  // BUT: Set a maximum timeout so splash never blocks UI longer than 2.5 seconds
+  if(catalogScreens.includes(route)&&!catalogBootComplete){
+    if(!window._splashTimeoutSet){
+      window._splashTimeoutSet=true;
+      setTimeout(hideSplash,2500);
+    }
+    return;
+  }
+  
   const s=$("#splash-screen");
-  if(s&&!s.dataset.hidden){s.dataset.hidden="1";s.style.opacity="0";setTimeout(()=>s.remove(),500)}
-},15000);
-
-function showLoader(){$("#view").innerHTML=`<div class="loader" style="margin-top:60px;"><div class="premium-spinner"></div><div style="color:var(--accent);font-weight:600;margin-top:16px;">Loading Zesto...</div></div>`}
-function hideSplash(){const s=$("#splash-screen");if(s&&!s.dataset.hidden){s.dataset.hidden="1";s.style.opacity="0";setTimeout(()=>s.remove(),500)}}
-
+  if(s&&!s.dataset.hidden){
+    s.dataset.hidden="1";
+    s.style.opacity="0";
+    setTimeout(()=>s.remove(),500);
+  }
+}
 function showCityModal() {
     $("#city-list").innerHTML = ALLOWED_CITIES.map(c => `
         <div class="city-option" onclick="selectCity('${escapeHtml(c)}')">
@@ -1060,38 +1265,165 @@ function safeRender(){
     render();
 }
 
+
+/* ===== Reliable Refresh + Form Draft Persistence =====
+   Realtime Firebase updates can re-render the current view. Drafts are kept
+   in sessionStorage so a refresh/re-render restores typed values without
+   permanently storing sensitive form data in localStorage.
+*/
+const ZESTO_DRAFT_PREFIX="zesto_form_draft_v3:";
+function zestoDraftRouteKey(){
+  return (location.hash||"#/home").split("?")[0] || "#/home";
+}
+function zestoReadDraft(){
+  try{return JSON.parse(sessionStorage.getItem(ZESTO_DRAFT_PREFIX+zestoDraftRouteKey())||"{}")||{}}
+  catch(e){return{}}
+}
+function zestoWriteDraft(d){
+  try{sessionStorage.setItem(ZESTO_DRAFT_PREFIX+zestoDraftRouteKey(),JSON.stringify(d))}
+  catch(e){}
+}
+function zestoBindDraftPersistence(){
+  const draft=zestoReadDraft();
+  const fields=document.querySelectorAll("input,textarea,select");
+  fields.forEach(el=>{
+    if(el.type==="file")return;
+    const key=el.id||el.name;
+    if(!key)return;
+    if(Object.prototype.hasOwnProperty.call(draft,key)){
+      if(el.type==="checkbox"||el.type==="radio") el.checked=!!draft[key];
+      else el.value=draft[key];
+    }
+    const save=()=>{
+      const d=zestoReadDraft();
+      d[key]=(el.type==="checkbox"||el.type==="radio")?el.checked:el.value;
+      zestoWriteDraft(d);
+    };
+    el.addEventListener("input",save);
+    el.addEventListener("change",save);
+  });
+}
+function zestoClearCurrentDraft(){
+  try{sessionStorage.removeItem(ZESTO_DRAFT_PREFIX+zestoDraftRouteKey())}catch(e){}
+}
+
+let lastRenderRoute="";
 function checkAndRender(){
-    if(dataFetched.products && dataFetched.config){
-        if(checkCitySelection()){
-            safeRender();
-        }
-    } else {
-        showLoader();
+    // Firebase data is asynchronous and must never keep the whole UI on a loader.
+    // Render immediately; individual sections can populate when their listeners return.
+    hideSplash();
+    checkCitySelection();
+    const currentRoute=parseRoute().parts[0]||"home";
+    // Only render if route changed; don't re-render same screen
+    if(currentRoute!==lastRenderRoute){
+      lastRenderRoute=currentRoute;
+      safeRender();
     }
 }
 
-productsRef.on('value',snap=>{PRODUCTS=snap.val()?Object.values(snap.val()):[];PRODUCTS.sort((a,b)=>(b.createdAt||0)-(a.createdAt||0));dataFetched.products=true;checkAndRender()});
-categoriesRef.on('value',snap=>{const v=snap.val();CATEGORIES=v?Object.keys(v).map(k=>({id:k,...v[k]})):[];if(dataFetched.products)safeRender();});
-offersRef.on('value',snap=>{const v=snap.val();OFFERS=v?Object.keys(v).map(k=>({id:k,...v[k]})).filter(o=>o.active!==false):[];if(dataFetched.products)safeRender();});
-ordersRef.on('value',snap=>{ORDERS=snap.val()?Object.values(snap.val()):[];ORDERS.sort((a,b)=>(b.createdAt||0)-(a.createdAt||0));dataFetched.orders=true;checkAndRender();checkAndAwardLoyalty();manageLiveTracking();checkReferralProgress()});
-ratingsRef.on('value',snap=>{RATINGS=snap.val()?Object.values(snap.val()):[];dataFetched.ratings=true;checkAndRender()});
-appConfigRef.on('value',snap=>{
+// Catalog/config listeners are bound only after Firebase Auth is ready.
+// This prevents an unauthenticated read from temporarily replacing the catalog with [].
+let coreCatalogListenersBound=false;
+let coreCatalogOwnerUid=null;
+let coreCatalogGeneration=0;
+function stopCoreCatalogListeners(){
+  try{
+    productsRef.off('value');
+    categoriesRef.off('value');
+    offersRef.off('value');
+    ratingsRef.off('value');
+    appConfigRef.off('value');
+  }catch(e){}
+  coreCatalogListenersBound=false;
+  coreCatalogOwnerUid=null;
+  coreCatalogGeneration++;
+}
+function rebindCoreCatalogListeners(){
+  const a=getAuth();
+  const uid=a&&a.currentUser?a.currentUser.uid:null;
+  if(!uid)return;
+  if(coreCatalogListenersBound&&coreCatalogOwnerUid===uid)return;
+  stopCoreCatalogListeners();
+  coreCatalogOwnerUid=uid;
+  const generation=coreCatalogGeneration;
+  // Do not clear the current catalog while the new authenticated listeners
+  // are attaching. The old code cleared/rebound listeners and immediately
+  // rendered Account/Home, creating a brief PRODUCTS=[] state that could
+  // persist until a manual refresh.
+  productsRef.on('value',snap=>{
+    if(generation!==coreCatalogGeneration||!getAuth()?.currentUser||getAuth().currentUser.uid!==uid)return;
+    const rows=snap.val()?Object.values(snap.val()):[];
+    rows.sort((x,y)=>(y.createdAt||0)-(x.createdAt||0));
+    PRODUCTS=rows;
+    dataFetched.products=true;
+    catalogBootComplete=true;
+    zestoSaveCatalogCache();
+    checkAndRender();
+  },err=>{
+    if(generation!==coreCatalogGeneration)return;
+    console.warn('products read failed:',err&&err.code,err&&err.message);
+    dataFetched.products=true;
+    catalogBootComplete=true;
+    checkAndRender();
+  });
+  categoriesRef.on('value',snap=>{
+    if(generation!==coreCatalogGeneration)return;
+    const v=snap.val();
+    CATEGORIES=v?Object.keys(v).map(k=>({id:k,...v[k]})):[];
+    zestoSaveCatalogCache();
+    if(dataFetched.products)safeRender();
+  },err=>{
+    if(generation!==coreCatalogGeneration)return;
+    console.warn('categories read failed:',err&&err.code,err&&err.message);
+    CATEGORIES=[];
+    if(dataFetched.products)safeRender();
+  });
+  offersRef.on('value',snap=>{
+    if(generation!==coreCatalogGeneration)return;
+    const v=snap.val();
+    OFFERS=v?Object.keys(v).map(k=>({id:k,...v[k]})).filter(o=>o.active!==false):[];
+    zestoSaveCatalogCache();
+    if(dataFetched.products)safeRender();
+  },err=>{
+    if(generation!==coreCatalogGeneration)return;
+    console.warn('offers read failed:',err&&err.code,err&&err.message);
+    OFFERS=[];
+    if(dataFetched.products)safeRender();
+  });
+  ratingsRef.on('value',snap=>{
+    if(generation!==coreCatalogGeneration)return;
+    RATINGS=snap.val()?Object.values(snap.val()):[];
+    dataFetched.ratings=true;
+    checkAndRender();
+  },err=>{
+    if(generation!==coreCatalogGeneration)return;
+    console.warn('ratings read failed:',err&&err.code,err&&err.message);
+    RATINGS=[];
+    dataFetched.ratings=true;
+    checkAndRender();
+  });
+  appConfigRef.on('value',snap=>{
+    if(generation!==coreCatalogGeneration)return;
     CONFIG=snap.val()||{};
-    HERO_IMAGE_URL=CONFIG.heroImage||"";BANNER_TEXT=CONFIG.bannerText||"";APP_LOGO_URL=CONFIG.appLogo||"";
-    if(CONFIG.allowedCities) ALLOWED_CITIES = CONFIG.allowedCities.split(',').map(s=>s.trim());
-    
-    if(BANNER_TEXT){$("#animated-banner-text").textContent=BANNER_TEXT;$("#animated-banner-wrap").style.display="block"}else{$("#animated-banner-wrap").style.display="none"}
-    if(APP_LOGO_URL){$("#app-logo").src=APP_LOGO_URL;$("#app-logo").style.display="block"}else{$("#app-logo").style.display="none"}
-    dataFetched.config=true;checkAndRender()});
-    
-deliveryAppsRef.on('value',snap=>{
-    DELIVERY_APPS=snap.val()?Object.values(snap.val()):[];
-    DELIVERY_APPS.sort((a,b)=>(b.createdAt||0)-(a.createdAt||0));
-    updateTabbar();
-    if(dataFetched.products && USER_CITY) safeRender();
-});
-
-let MILESTONES=[],REWARDS_ALL=[];
+    HERO_IMAGE_URL=CONFIG.heroImage||"";
+    BANNER_TEXT=CONFIG.bannerText||"";
+    APP_LOGO_URL=CONFIG.appLogo||"";
+    if(CONFIG.allowedCities) ALLOWED_CITIES=CONFIG.allowedCities.split(',').map(s=>s.trim());
+    if(BANNER_TEXT){$("#animated-banner-text").textContent=BANNER_TEXT;$("#animated-banner-wrap").style.display="block"}
+    else{$("#animated-banner-wrap").style.display="none"}
+    if(APP_LOGO_URL){$("#app-logo").src=APP_LOGO_URL;$("#app-logo").style.display="block"}
+    else{$("#app-logo").style.display="none"}
+    dataFetched.config=true;
+    zestoSaveCatalogCache();
+    checkAndRender();
+  },err=>{
+    if(generation!==coreCatalogGeneration)return;
+    console.warn('config read failed:',err&&err.code,err&&err.message);
+    dataFetched.config=true;
+    checkAndRender();
+  });
+  coreCatalogListenersBound=true;
+}let MILESTONES=[],REWARDS_ALL=[];
 const milestonesRef=db.ref('milestones');
 const rewardsRef=db.ref('rewards');
 let _seenMilestoneIds=null;
@@ -1127,61 +1459,56 @@ function ensureProfileBefore(nextHash){if(!hasCompleteProfile()){writeLocal("sf_
 function renderStarIcons(rating,max=5){let h='';for(let i=1;i<=max;i++)h+=i<=rating?'<i class="fa-solid fa-star"></i>':'<i class="fa-solid fa-star empty"></i>';return h}
 function getProductRating(pid){const r=RATINGS.filter(x=>x.productId===pid);if(!r.length)return 0;return(r.reduce((s,x)=>s+x.rating,0)/r.length).toFixed(1)}
 
-function getDeliveryApprovalStatus(){
-  if(!PROFILE.email) return null;
-  return DELIVERY_APPS.find(a=>a.email && a.email.toLowerCase() === PROFILE.email.toLowerCase());
-}
-function isApprovedDeliveryBoy(){
-  const app=getDeliveryApprovalStatus();
-  return app&&app.status==='Approved';
-}
-
-/* ===== Vendor Panel ===== */
+/* ===== Vendor availability (used to gate product availability for customers) ===== */
 const vendorsRef=db.ref('vendors');
-const vendorPlansRef=db.ref('vendorPlans');
-const vendorHelpVideosRef=db.ref('vendorHelpVideos');
-const vendorSettingsRef=db.ref('vendorSettings');
-let VENDORS_ALL=[],VENDOR_PLANS=[],VENDOR_HELP_VIDEOS=[],VENDOR_SETTINGS={maxPrepMinutes:120};
-vendorsRef.on('value',snap=>{const v=snap.val();VENDORS_ALL=v?Object.keys(v).map(k=>({uid:k,...v[k]})):[];checkVendorRedirect()});
-vendorPlansRef.on('value',snap=>{const v=snap.val();VENDOR_PLANS=v?Object.keys(v).map(k=>({id:k,...v[k]})).filter(p=>p.active!==false):[];});
-vendorHelpVideosRef.on('value',snap=>{const v=snap.val();VENDOR_HELP_VIDEOS=v?Object.keys(v).map(k=>({id:k,...v[k]})):[];});
-vendorSettingsRef.on('value',snap=>{VENDOR_SETTINGS=snap.val()||{maxPrepMinutes:120}});
-
-function myVendorRecord(){return AUTH_USER?VENDORS_ALL.find(v=>v.uid===AUTH_USER.uid):null}
-function isApprovedVendor(){const v=myVendorRecord();return!!(v&&v.status==='Approved')}
-function checkVendorRedirect(){
-  if(!AUTH_USER||!dataFetched.products)return;
-  const v=myVendorRecord();
-  if(!v||v.status!=='Approved')return;
-  const{parts}=parseRoute();
-  const r=parts[0];
-  const allowedWhileVendor=["vendor","login","signup","forgot-password"];
-  if(!allowedWhileVendor.includes(r)){
-    routeTo("#/vendor/dashboard");
-  }
-}
-function vendorOrderCode(orderId){return orderId} // order codes already unique per order, shown consistently across Admin/Vendor/Delivery/Customer
+let VENDORS_ALL=[];
+vendorsRef.on('value',snap=>{const v=snap.val();VENDORS_ALL=v?Object.keys(v).map(k=>({uid:k,...v[k]})):[]});
 
 function renderSideDrawer(){
   initAuthListenerOnce();
-  const approved=isApprovedDeliveryBoy();
   const nav=$("#side-drawer-nav");
   let links=`
     <a href="#/home" data-nav="home"><i class="fa-solid fa-house"></i> Home</a>
     <a href="#/shop" data-nav="shop"><i class="fa-solid fa-magnifying-glass"></i> Shop</a>
     <a href="#/offers" data-nav="offers"><i class="fa-solid fa-tags"></i> Offers</a>
-    <a href="#/cart" data-nav="cart"><i class="fa-solid fa-cart-shopping"></i> Cart</a>`;
-  if(approved)links+=`<a href="#/delivery/dashboard" data-nav="delivery"><i class="fa-solid fa-motorcycle"></i> Delivery Dashboard</a>`;
-  links+=`
+    <a href="#/cart" data-nav="cart"><i class="fa-solid fa-cart-shopping"></i> Cart</a>
     <a href="#/account" data-nav="account"><i class="fa-regular fa-user"></i> Account</a>
     <a href="#/contact-support" data-nav="support"><i class="fa-solid fa-headset"></i> Contact Support</a>`;
   links+=AUTH_USER?`<a href="#" id="drawer-logout"><i class="fa-solid fa-right-from-bracket"></i> Logout</a>`:`<a href="#/login" data-nav="login"><i class="fa-solid fa-right-to-bracket"></i> Login / Sign Up</a>`;
   nav.innerHTML=links;
   const r=(parseRoute().parts[0]||"home");
   $$("#side-drawer-nav a").forEach(a=>a.classList.toggle("active",a.dataset.nav===r));
-  const line=$("#drawer-user-line");if(line)line.textContent=PROFILE&&PROFILE.name?("Hi, "+PROFILE.name):"Welcome!";
-  $$("#side-drawer-nav a").forEach(a=>a.addEventListener("click",closeSideDrawer));
-  $("#drawer-logout")?.addEventListener("click",e=>{e.preventDefault();const a=getAuth();if(a)a.signOut().then(()=>{toast("Logged out");routeTo("#/home")})});
+  const line=$("#drawer-user-line");if(line)line.textContent=(AUTH_USER&&PROFILE&&PROFILE.name)?("Hi, "+PROFILE.name):"Welcome!";
+  const PROTECTED_NAV=["shop","cart","account"];
+  $$("#side-drawer-nav a").forEach(a=>a.addEventListener("click",e=>{
+    closeSideDrawer();
+    const target=a.dataset.nav;
+    if(!target||!PROTECTED_NAV.includes(target))return;
+    // Firebase Auth is the source of truth — check its live currentUser here
+    // (not just the cached AUTH_USER var) before letting the menu open a
+    // protected page, so an inconsistent/unresolved auth state can't open Shop.
+    const fa=getAuth();
+    if(fa&&!fa.currentUser){
+      console.log("[auth] drawer nav to '"+target+"' blocked — no Firebase currentUser.");
+      e.preventDefault();
+      routeTo("#/login");
+    }
+  }));
+  $("#drawer-logout")?.addEventListener("click",e=>{
+    e.preventDefault();
+    console.log("[auth] Logout clicked. currentUser before signOut:",getAuth()?.currentUser?getAuth().currentUser.uid:null);
+    const a=getAuth();
+    if(!a)return;
+    a.signOut().then(()=>{
+      // Firebase Auth is the source of truth, but we clear every local cache
+      // derived from the previous session so no stale "logged in" state lingers.
+      AUTH_USER=null;
+      PROFILE={name:"",email:"",phone:"",address:"",pincode:"",city:"",state:"",district:"",landmark:"",avatar:"",isComplete:false,favorites:[]};
+      try{localStorage.removeItem("sf_profile");}catch(e){}
+      console.log("[auth] Logout complete. AUTH_USER cleared, PROFILE cache cleared. currentUser now:",a.currentUser?a.currentUser.uid:null);
+      toast("Logged out");routeTo("#/home");
+    });
+  });
 }
 function openSideDrawer(){renderSideDrawer();$("#side-drawer").classList.add("open");$("#side-drawer-backdrop").classList.add("open")}
 function closeSideDrawer(){$("#side-drawer").classList.remove("open");$("#side-drawer-backdrop").classList.remove("open")}
@@ -1191,23 +1518,12 @@ $("#cart-sheet-backdrop").addEventListener("click",closeCartSheet);
 
 function updateTabbar(){
   const tb=$("#tabbar-inner");
-  const approved=isApprovedDeliveryBoy();
-  if(approved){
-    tb.classList.remove("four-tabs");
-    tb.innerHTML=`
-      <a class="tab" data-tab="home" href="#/home"><i class="fa-solid fa-house"></i><span>Home</span></a>
-      <a class="tab" data-tab="shop" href="#/shop"><i class="fa-solid fa-magnifying-glass"></i><span>Shop</span></a>
-      <a class="tab" data-tab="delivery" href="#/delivery/dashboard"><i class="fa-solid fa-motorcycle"></i><span>Deliver</span></a>
-      <a class="tab" data-tab="cart" href="#/cart"><i class="fa-solid fa-cart-shopping"></i><span>Cart</span></a>
-      <a class="tab" data-tab="account" href="#/account"><i class="fa-regular fa-user"></i><span>Account</span></a>`;
-  }else{
-    tb.classList.add("four-tabs");
-    tb.innerHTML=`
-      <a class="tab" data-tab="home" href="#/home"><i class="fa-solid fa-house"></i><span>Home</span></a>
-      <a class="tab" data-tab="shop" href="#/shop"><i class="fa-solid fa-magnifying-glass"></i><span>Shop</span></a>
-      <a class="tab" data-tab="cart" href="#/cart"><i class="fa-solid fa-cart-shopping"></i><span>Cart</span></a>
-      <a class="tab" data-tab="account" href="#/account"><i class="fa-regular fa-user"></i><span>Account</span></a>`;
-  }
+  tb.classList.add("four-tabs");
+  tb.innerHTML=`
+    <a class="tab" data-tab="home" href="#/home"><i class="fa-solid fa-house"></i><span>Home</span></a>
+    <a class="tab" data-tab="shop" href="#/shop"><i class="fa-solid fa-magnifying-glass"></i><span>Shop</span></a>
+    <a class="tab" data-tab="cart" href="#/cart"><i class="fa-solid fa-cart-shopping"></i><span>Cart</span></a>
+    <a class="tab" data-tab="account" href="#/account"><i class="fa-regular fa-user"></i><span>Account</span></a>`;
 }
 
 
@@ -1231,12 +1547,6 @@ function catsForMode(mode){
 
 function HomeView(){
   setTopbar("Home",false);setActiveTab("home");
-  const app=getDeliveryApprovalStatus();
-  let notifHtml='';
-  if(app){
-    if(app.status==='Pending') notifHtml=`<div class="notif-banner warning"><i class="fa-solid fa-clock" style="color:#F59E0B"></i><div><strong>Application Pending</strong> — Your delivery partner application is under review.</div></div>`;
-    else if(app.status==='Rejected') notifHtml=`<div class="notif-banner" style="background:#FEE2E2;border-color:#FECACA"><i class="fa-solid fa-circle-xmark" style="color:#E11D48"></i><div><strong>Application Rejected</strong> — Unfortunately your application was not approved.</div></div>`;
-  }
   const lockBanner=CONFIG.storeLocked?`<div class="lock-banner"><i class="fa-solid fa-lock"></i> Store is currently closed. We are not accepting orders at this time.</div>`:'';
   const cats=catsForMode(HOME_MODE);
   const locationLabel=USER_LIVE_LOCATION?USER_LIVE_LOCATION.label:USER_CITY;
@@ -1245,7 +1555,6 @@ function HomeView(){
     ${lockBanner}
     <section style="padding:0 0 14px">
       <div style="background:var(--accent);padding:14px 14px 18px;border-radius:0 0 20px 20px;color:#fff">
-        ${notifHtml}
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;gap:10px">
           <button id="home-location-btn" style="background:none;border:none;color:#fff;text-align:left;padding:0;cursor:pointer;min-width:0;flex:1">
             <div style="font-size:11px;opacity:.85;display:flex;align-items:center;gap:4px">DELIVER TO <i class="fa-solid fa-chevron-down" style="font-size:9px"></i></div>
@@ -1300,13 +1609,6 @@ function HomeView(){
       <div style="padding:14px">
         <h3 style="margin:0 0 8px;font-family:Poppins;color:var(--accentDark)">Recommended for you</h3>
         <div class="grid" id="home-grid"></div>
-
-        ${!app?`
-        <div class="join-banner">
-          <h3><i class="fa-solid fa-motorcycle"></i> Become a Delivery Partner</h3>
-          <p>Earn money on your schedule. Join our delivery team today!</p>
-          <button class="btn" style="background:#fff;color:var(--accentDark)" onclick="routeTo('#/join-team')">Join Our Team</button>
-        </div>`:''}
 
         <div class="support-footer"><a href="#/contact-support"><i class="fa-solid fa-headset"></i> Need Help? Contact Support</a></div>
       </div>
@@ -1451,7 +1753,7 @@ function ProductCard(p){
       <div style="display:flex;align-items:center;justify-content:space-between;margin-top:2px">
         <div class="price-line"><div class="price-pill">${money(price)}</div>${mrp?`<div class="strike">${money(mrp)}</div>`:""}</div>${stars}
       </div>
-      ${p.prepTimeMinutes?`<div class="muted" style="font-size:11px;margin-top:4px"><i class="fa-regular fa-clock"></i> Ready in ${p.prepTimeMinutes} Minutes</div>`:''}
+      ${prepRangeText(p)?`<div class="muted" style="font-size:11px;margin-top:4px"><i class="fa-regular fa-clock"></i> Ready in ${prepRangeText(p)}</div>`:''}
     </div></a>`;
 }
 
@@ -1553,11 +1855,9 @@ function ProductView(id){
 
   const isLocked = CONFIG.storeLocked;
   const btnAdd = $("#add-to-cart");
-  const vendorUnavailable = !isProductAvailable(p) && !p.outOfStock;
-
-  if (p.outOfStock || isLocked || vendorUnavailable) {
+  if (p.outOfStock || isLocked) {
       btnAdd.disabled = true;
-      btnAdd.innerHTML = isLocked ? `<i class="fa-solid fa-lock"></i> Store Closed` : vendorUnavailable ? `<i class="fa-solid fa-store-slash"></i> Currently Unavailable` : `<i class="fa-solid fa-ban"></i> Out of Stock`;
+      btnAdd.innerHTML = isLocked ? `<i class="fa-solid fa-lock"></i> Store Closed` : `<i class="fa-solid fa-ban"></i> Out of Stock`;
   } else {
       btnAdd.addEventListener("click",()=>{addToCart(p.id,"NA",selectedQty);toast("Added to cart");renderCartBar()});
   }
@@ -1602,6 +1902,7 @@ function LoginView(){
           errBox.style.display="block";btn.disabled=false;btn.innerHTML='<i class="fa-solid fa-right-to-bracket"></i> Login';
           return;
         }
+        AUTH_USER=cred.user;authBootHandled=true;refreshPrivateListeners();rebindCoreCatalogListeners();zestoClearCurrentDraft();
         toast("Welcome back!");routeTo("#/home");
       });
     }).catch(e=>{
@@ -1619,8 +1920,12 @@ function LoginView(){
     else{
       db.ref('users').orderByChild('mobile').equalTo(id).once('value').then(snap=>{
         const v=snap.val();
-        if(!v){errBox.textContent="No account found with this mobile number.";errBox.style.display="block";btn.disabled=false;btn.innerHTML='<i class="fa-solid fa-right-to-bracket"></i> Login';return}
+        if(!v){errBox.textContent="No account found with this mobile number. Use your registered email.";errBox.style.display="block";btn.disabled=false;btn.innerHTML='<i class="fa-solid fa-right-to-bracket"></i> Login';return}
         const rec=Object.values(v)[0];doLogin(rec.email);
+      }).catch(e=>{
+        console.warn("[auth] mobile login lookup failed:",e&&e.code,e&&e.message);
+        errBox.textContent="Mobile login is unavailable with the current secure Firebase rules. Please use your registered email.";
+        errBox.style.display="block";btn.disabled=false;btn.innerHTML='<i class="fa-solid fa-right-to-bracket"></i> Login';
       });
     }
   });
@@ -1658,7 +1963,7 @@ function SignupView(){
       PROFILE.name=name;PROFILE.email=email;PROFILE.phone=mobile;PROFILE.isComplete=hasCompleteProfile();saveProfile();
       localStorage.removeItem("sf_referral_code");
       if(refCode)recordReferral(refCode,newUid,name,email);
-      toast("Account created!");routeTo("#/home");
+      if(getAuth().currentUser)AUTH_USER=getAuth().currentUser;authBootHandled=true;toast("Account created!");routeTo("#/home");
     }).catch(e=>{errBox.textContent=e.message.replace("Firebase: ","");errBox.style.display="block";btn.disabled=false;btn.innerHTML='<i class="fa-solid fa-user-plus"></i> Sign Up'});
   });
 }
@@ -1901,6 +2206,21 @@ function CheckoutView(){
   if(CART.length===0 || CONFIG.storeLocked){routeTo("#/cart");return}
   closeCartSheet();
   setTopbar("Checkout",true);setActiveTab("");
+  
+  // Auto-recheck location permission status when checkout opens
+  if(!USER_LIVE_LOCATION && navigator.geolocation){
+    navigator.geolocation.getCurrentPosition(
+      pos=>{
+        USER_LIVE_LOCATION={lat:pos.coords.latitude,lng:pos.coords.longitude,updatedAt:Date.now()};
+        writeLocal("sf_live_location",USER_LIVE_LOCATION);
+        const overlay=document.getElementById('gps-mandatory-overlay');
+        if(overlay)overlay.style.display="none";
+      },
+      err=>{console.warn("Checkout GPS error:",err);}
+      ,{enableHighAccuracy:true,maximumAge:0,timeout:10000}
+    );
+  }
+  
   const total=cartTotal();const shipT=CART.reduce((a,c)=>{const p=PRODUCTS.find(x=>x.id===c.productId);return a+(p?getShipping(p):0)},0);const sub=total-shipT;
   
   // Strict Location Logic Overlay (Ensures GPS is activated by user)
@@ -1984,6 +2304,9 @@ function CheckoutView(){
     let map;
     try{
       // Map with dragging disabled, strictly GPS based
+      // Ensure map container has proper stacking context
+      mapEl.style.position='relative';
+      mapEl.style.zIndex='1';
       map=L.map('checkout-map', {
           zoomControl: false, dragging: false, scrollWheelZoom: false, doubleClickZoom: false
       }).setView([20.5937,78.9629],5);
@@ -2009,7 +2332,7 @@ function CheckoutView(){
         $("#checkout-next").style.cursor = 'pointer';
     }
     
-    setTimeout(() => { if(document.getElementById('checkout-map')) map.invalidateSize(); }, 300);
+    setTimeout(() => { if(document.getElementById('checkout-map')) { mapEl.style.position='relative'; mapEl.style.zIndex='1'; map.invalidateSize(); } }, 300);
 
     // Already granted earlier (Zomato-style): reuse cached location silently, no re-prompt
     if(USER_LIVE_LOCATION){
@@ -2020,30 +2343,25 @@ function CheckoutView(){
 
     // Force GPS Button Logic (Popup approach) — only needed if permission wasn't already granted
     $("#force-gps-btn").addEventListener("click",()=>{
-        if(navigator.geolocation){
-            const btn = $("#force-gps-btn");
-            btn.innerHTML = "Fetching Location...";
-            navigator.geolocation.getCurrentPosition(
-                pos=>{
-                    toast("Location Verified!");
-                    setMarker(pos.coords.latitude,pos.coords.longitude);
-                    $("#gps-mandatory-overlay").style.display = "none";
-                    USER_LIVE_LOCATION=USER_LIVE_LOCATION||{lat:pos.coords.latitude,lng:pos.coords.longitude,label:USER_CITY,updatedAt:Date.now()};
-                    writeLocal("sf_live_location",USER_LIVE_LOCATION);
-                },
-                err=>{
-                    let errorMsg = "Could not get location.";
-                    if(err.code === 1) errorMsg = "Location Permission Denied! Please allow location access in your device/browser settings.";
-                    else if(err.code === 2) errorMsg = "Position Unavailable! Please turn on your device GPS.";
-                    else if(err.code === 3) errorMsg = "Request Timed Out! Please try again.";
-                    alert(errorMsg);
-                    btn.innerHTML = `<i class="fa-solid fa-location-dot"></i> Try Again`;
-                },
-                {enableHighAccuracy: true} 
-            );
-        } else {
-            alert("Geolocation is not supported by your browser.");
-        }
+        const btn = $("#force-gps-btn");
+        if(!btn)return;
+        btn.disabled=true;btn.innerHTML="Fetching Location...";
+        requestLocationOnce(12000).then(loc=>{
+          toast("Location Verified!");
+          setMarker(loc.lat,loc.lng);
+          $("#gps-mandatory-overlay").style.display="none";
+          USER_LIVE_LOCATION={...loc,label:USER_CITY};
+          writeLocal("sf_live_location",USER_LIVE_LOCATION);
+        }).catch(err=>{
+          const code=err&&err.code;
+          let msg="Could not get location.";
+          if(code===1)msg="Location permission denied. Allow Location for Zesto and try again.";
+          else if(code===2)msg="Device location is unavailable. Turn on GPS/Location and try again.";
+          else if(code===3)msg="Location timed out. Turn on GPS and try again.";
+          else if(err&&err.message)msg=err.message;
+          alert(msg);
+          btn.disabled=false;btn.innerHTML='<i class="fa-solid fa-location-dot"></i> Try Again';
+        });
     });
 
   },100);
@@ -2082,7 +2400,7 @@ function CheckoutView(){
       else if(r.rewardType==='free_delivery')desc='Free delivery';
       else desc=money(r.rewardValue||0)+' off';
       return `<div class="payment-option" data-reward="${r.id}"><div class="radio-dot"></div><i class="fa-solid fa-ticket pay-icon"></i>
-        <div><div style="font-weight:700;color:#111">${escapeHtml(r.rewardName)}</div><div class="muted" style="font-size:12px">${desc}${r.expiryAt?' · Expires '+new Date(r.expiryAt).toLocaleDateString():''}</div></div>
+        <div><div style="font-weight:700;color:#111">${escapeHtml(r.rewardName)}</div><div class="muted" style="font-size:12px">${desc}${r.expiryAt?' · Expires '+safeDateText(r.expiryAt):''}</div></div>
       </div>`;
     }).join('')+`<div class="payment-option selected" data-reward=""><div class="radio-dot"></div><i class="fa-solid fa-ban pay-icon"></i><div><div style="font-weight:700;color:#111">Don't apply a reward</div></div></div>`;
     $$("#reward-options .payment-option").forEach(opt=>opt.addEventListener("click",()=>{
@@ -2107,14 +2425,21 @@ function CheckoutView(){
   updateCheckoutTotal();
 
   $("#checkout-next").addEventListener("click",()=>{
-    PROFILE.name=$("#ch-name").value.trim();PROFILE.email=$("#ch-email").value.trim();PROFILE.phone=$("#ch-phone").value.trim();
-    PROFILE.address=$("#ch-address").value.trim();PROFILE.city=$("#ch-city").value.trim();PROFILE.pincode=$("#ch-pincode").value.trim();
-    PROFILE.state=$("#ch-state").value.trim();PROFILE.district=$("#ch-district").value.trim();PROFILE.landmark=$("#ch-landmark").value.trim();
+    const latEl=$("#ch-lat"),lngEl=$("#ch-lng"),nameEl=$("#ch-name"),emailEl=$("#ch-email"),phoneEl=$("#ch-phone"),addressEl=$("#ch-address"),cityEl=$("#ch-city"),pinEl=$("#ch-pincode"),stateEl=$("#ch-state"),districtEl=$("#ch-district"),landmarkEl=$("#ch-landmark");
+    if(!latEl||!lngEl){alert("Location field is not ready. Please allow Location and open Checkout again.");return;}
+    const gpsLat=Number(latEl.value),gpsLng=Number(lngEl.value);
+    if(!Number.isFinite(gpsLat)||!Number.isFinite(gpsLng)){alert("Please enable your current location before placing the order.");return;}
+    PROFILE.name=(nameEl?.value||"").trim();PROFILE.email=(emailEl?.value||"").trim();PROFILE.phone=(phoneEl?.value||"").trim();
+    PROFILE.address=(addressEl?.value||"").trim();PROFILE.city=(cityEl?.value||"").trim();PROFILE.pincode=(pinEl?.value||"").trim();
+    PROFILE.state=(stateEl?.value||"").trim();PROFILE.district=(districtEl?.value||"").trim();PROFILE.landmark=(landmarkEl?.value||"").trim();
     PROFILE.isComplete=hasCompleteProfile();if(!PROFILE.isComplete){alert("Please fill name, email, phone, address and pincode.");return}
-    saveProfile();
     
-    const lat=$("#ch-lat").value;const lng=$("#ch-lng").value;
+    // Verify location one more time before submission
+    const lat=latEl.value;const lng=lngEl.value;
     if(!lat || !lng) { alert("Location is missing. Please refresh and allow GPS."); return; }
+    if(!USER_LIVE_LOCATION || USER_LIVE_LOCATION.lat===undefined) { alert("Location permission issue. Please turn on GPS again."); return; }
+    
+    saveProfile();
 
     const basePayout = CONFIG.payout_0_2 || 20;
 
@@ -2136,17 +2461,20 @@ function CheckoutView(){
       const p=PRODUCTS.find(x=>x.id===it.productId);
       return s+((p&&p.vendorCost!==undefined)?((it.price||0)-p.vendorCost)*it.qty:0);
     },0);
-    const orderBase={
+    // Vendor assignment is Admin-controlled; a new order is invisible to vendors until assigned.
+     const orderVendorUid=null;
+     const orderBase={
         orderId,items,customer:{...PROFILE,lat:Number(lat),lng:Number(lng)},amount:finalAmount,
         uid:AUTH_USER?AUTH_USER.uid:null,
+        vendorUid:orderVendorUid,
         originalAmount:amount,discountAmount:totalDiscount,platformCost,
         freeProductGiven: freeProductGiven?{productId:freeProductGiven.productId,name:freeProductGiven.name,price:freeProductGiven.price}:null,
         rewardApplied: appliedReward?{rewardId:appliedReward.id,code:appliedReward.code,rewardName:appliedReward.rewardName,rewardType:appliedReward.rewardType,rewardValue:appliedReward.rewardValue,discount:rewardDiscount}:null,
         offerApplied: SELECTED_OFFER?{offerId:SELECTED_OFFER.id,code:SELECTED_OFFER.code,title:SELECTED_OFFER.title,discountType:SELECTED_OFFER.discountType,discount:offerDiscount}:null,
         deliveryLocation:{lat:Number(lat),lng:Number(lng)},
+        adminApproved:false,vendorAssignedAt:null,pickupCode:null,pickupVerifiedAt:null,pickupPhoto:null,
         deliveryPayout: basePayout,
         deliveryTimer: 30, // Initial default timer
-        liveLocation:{lat:0,lng:0} // Initialize live location for delivery boy tracking
     };
     if(payMethod==="online"){writeLocal("sf_pending",{...orderBase,status:"Online Payment - Pending",paymentMethod:"online"});routeTo("#/pay/online")}
     else{writeLocal("sf_pending",{...orderBase,status:"COD - Pending",paymentMethod:"cod"});routeTo("#/cod/review")}
@@ -2187,6 +2515,7 @@ function OnlinePayView(){
 function CODReviewView(){
   setTopbar("Confirm Order",true);setActiveTab("");
   const pend=readLocal("sf_pending",null);if(!pend){routeTo("#/cart");return}
+  const customer=pend.customer||PROFILE||{};
   const items=pend.items||[];
   const sub=items.reduce((a,it)=>a+((it.price||0)*it.qty),0);
   const shipT=items.reduce((a,it)=>a+(typeof it.shipping === 'number' ? it.shipping : 50),0);
@@ -2206,9 +2535,9 @@ function CODReviewView(){
       </div>
       <div class="card pad" style="margin-top:12px">
         <h3 style="margin:0 0 8px;font-family:Poppins;color:var(--accentDark)">Shipping Details</h3>
-        <div>${escapeHtml(pend.customer.name)}</div>
-        <div class="muted">${escapeHtml(pend.customer.address)} — ${escapeHtml(pend.customer.pincode)}</div>
-        <div class="muted">Phone: ${escapeHtml(pend.customer.phone)}</div>
+        <div>${escapeHtml(customer.name||"")}</div>
+        <div class="muted">${escapeHtml(customer.address||"")} — ${escapeHtml(customer.pincode||"")}</div>
+        <div class="muted">Phone: ${escapeHtml(customer.phone||"")}</div>
       </div>
       <div style="margin-top:16px"><button class="btn btn-block" id="confirm-cod"><i class="fa-solid fa-check-double"></i> Confirm Your Order</button></div>
     </section>`;
@@ -2216,26 +2545,81 @@ function CODReviewView(){
 }
 function finalizeCOD(){
   const pend=readLocal("sf_pending",null);if(!pend){alert("No pending order.");return}
+  const a=getAuth();
+  if(!a||!a.currentUser){alert("Please login again before placing the order.");routeTo("#/login");return}
   try{
+    // Validate all required fields before Firebase write
+    if(!pend.items||!Array.isArray(pend.items)||pend.items.length===0){
+      console.error("Order validation failed: missing or invalid items array");
+      alert("Failed to place order: Invalid cart items.");
+      return;
+    }
+    if(!pend.customer||typeof pend.customer!=='object'){
+      console.error("Order validation failed: missing customer object");
+      alert("Failed to place order: Missing customer information.");
+      return;
+    }
+    if(!pend.deliveryLocation||typeof pend.deliveryLocation!=='object'||pend.deliveryLocation.lat===undefined||pend.deliveryLocation.lng===undefined){
+      console.error("Order validation failed: missing or invalid deliveryLocation");
+      alert("Failed to place order: Missing delivery location.");
+      return;
+    }
+    if(!pend.orderId){
+      console.error("Order validation failed: missing orderId");
+      alert("Failed to place order: Order ID generation failed.");
+      return;
+    }
+    
     const k=db.ref('orders').push().key;
     const isOnline=pend.paymentMethod==="online";
-    const raw={...pend,firebaseKey:k,createdAt:Date.now(),status:isOnline?"Online Payment - Verifying":"COD - Placed",trackingUrl:"",deliveryBoy:null,deliveryStatus:"New Order"};
+    const raw={...pend,uid:a.currentUser.uid,customer:pend.customer||PROFILE,firebaseKey:k,createdAt:Date.now(),status:isOnline?"Online Payment - Verifying":"COD - Placed",trackingUrl:"",deliveryBoy:null,deliveryBoyUid:null,deliveryBoyEmail:null,deliveryStatus:"New Order"};
     const data=JSON.parse(JSON.stringify(raw)); // strips undefined fields (e.g. deleted product) that make Firebase .set() throw synchronously
     db.ref('orders/'+k).set(data).then(()=>{
-      writeLocal("sf_last_order",data);localStorage.removeItem("sf_pending");CART=[];saveCart();closeCartSheet();
-      if(pend.rewardApplied?.rewardId){db.ref('rewards/'+pend.rewardApplied.rewardId).update({status:'used',usedAt:Date.now(),orderId:pend.orderId}).catch(e=>console.warn("Reward mark-used failed:",e))}
-      if(pend.offerApplied?.offerId){offerRedemptionsRef.push({offerId:pend.offerApplied.offerId,code:pend.offerApplied.code,uid:AUTH_USER?AUTH_USER.uid:null,userEmail:PROFILE.email,orderId:pend.orderId,redeemedAt:Date.now()}).catch(e=>console.warn("Offer redemption record failed:",e))}
-      routeTo("#/cod/success")
-    }).catch(err=>{console.error("Order sync failed:",err);alert("Failed to place order: "+(err.message||"Please try again."))});
+      try{
+        writeLocal("sf_last_order",data);
+        localStorage.removeItem("sf_pending");
+        CART=[];
+        saveCart();
+        closeCartSheet();
+        
+        // Mark reward as used if applied
+        if(pend.rewardApplied?.rewardId){
+          db.ref('rewards/'+pend.rewardApplied.rewardId).update({status:'used',usedAt:Date.now(),orderId:pend.orderId}).catch(e=>{
+            console.error("Reward mark-used failed:",e);
+          });
+        }
+        
+        // Record offer redemption if applied
+        if(pend.offerApplied?.offerId){
+          if(typeof offerRedemptionsRef==='object'&&offerRedemptionsRef!==null){
+            offerRedemptionsRef.push({offerId:pend.offerApplied.offerId,code:pend.offerApplied.code,uid:AUTH_USER?AUTH_USER.uid:null,userEmail:PROFILE.email,orderId:pend.orderId,redeemedAt:Date.now()}).catch(e=>{
+              console.error("Offer redemption record failed:",e);
+            });
+          }else{
+            console.warn("offerRedemptionsRef not available for offer redemption recording");
+          }
+        }
+        
+        routeTo("#/cod/success");
+      }catch(err){
+        console.error("Order success flow failed:",err);
+        alert("Failed to place order: "+(err.message||"Please try again."));
+      }
+    }).catch(err=>{
+      console.error("Order sync failed:",err);
+      console.error("Order sync error details:",{message:err.message,code:err.code,stack:err.stack});
+      alert("Failed to place order: "+(err.message||"Please try again."));
+    });
   }catch(err){
     console.error("Order build failed:",err);
+    console.error("Order build error details:",{message:err.message,code:err.code,stack:err.stack});
     alert("Failed to place order: "+(err.message||"Please try again."));
   }
 }
 function CODSuccessView(){
   setTopbar("Order Confirmed",true);setActiveTab("");
   const last=readLocal("sf_last_order",null);
-  $("#view").innerHTML=`<section class="success-wrap"><div class="check-anim"><i class="fa-solid fa-check" style="font-size:36px"></i></div><div class="confetti" id="confetti"></div><h2 style="font-family:Poppins;margin:12px 0 8px;color:var(--accentDark)">Order Confirmed!</h2><div class="muted" style="text-align:center">Order <b>#${escapeHtml(last?.orderId||"")}</b></div><div style="margin-top:16px;display:flex;gap:10px;flex-direction:column;width:100%;max-width:480px"><a class="btn btn-block" href="#/confirm">Track My Order</a><a class="btn btn-outline btn-block" href="#/shop">Back to Shop</a></div></section>`;
+  $("#view").innerHTML=`<section class="success-wrap"><div class="check-anim"><i class="fa-solid fa-check" style="font-size:36px"></i></div><div class="confetti" id="confetti"></div><h2 style="font-family:Poppins;margin:12px 0 8px;color:var(--accentDark)">Order Confirmed!</h2><div class="muted" style="text-align:center">Order <b>#${escapeHtml(last?.orderId||"")}</b></div><div style="margin-top:16px;display:flex;gap:10px;flex-direction:column;width:100%;max-width:480px"><a class="btn btn-block" href="#/account/orders/${last?.firebaseKey||''}">Track My Order</a><a class="btn btn-outline btn-block" href="#/shop">Back to Shop</a></div></section>`;
   popConfetti();playSuccessSound();
 }
 
@@ -2277,6 +2661,7 @@ function ConfirmView(){
           const timerEl = document.getElementById(`order-timer`);
           if(!timerEl) return;
           
+          let intv;
           const updateTimer = () => {
               if(!document.getElementById(`order-timer`)) return clearInterval(intv);
               // Re-fetch live order data to get the latest prepTimeMinutes (vendor may have updated it)
@@ -2295,7 +2680,7 @@ function ConfirmView(){
               }
           };
           updateTimer();
-          const intv = setInterval(updateTimer, 1000);
+          intv = setInterval(updateTimer, 1000);
       }, 100);
   }
 
@@ -2307,710 +2692,7 @@ function ConfirmView(){
     <div style="margin:16px 0;display:flex;flex-direction:column;gap:10px"><a class="btn btn-outline btn-block" href="#/shop">Back to Shop</a></div></section>`;
 }
 
-function DeliveryDashboardView(){
-  setTopbar("Delivery Dashboard",false);setActiveTab("delivery");
-  const app=getDeliveryApprovalStatus();
-  if(!app||app.status!=='Approved'){routeTo("#/home");return}
-  const myEmail=PROFILE.email.toLowerCase();
-  const myOrders=ORDERS.filter(o=>o.deliveryBoy&&o.deliveryBoy.email&&o.deliveryBoy.email.toLowerCase()===myEmail);
-  const readyForPickup=ORDERS.filter(o=>o.deliveryStatus==='Ready for Pickup'&&(!o.deliveryBoy||!o.deliveryBoy.email)).length;
 
-  const activeCount=myOrders.filter(o=>o.deliveryStatus==='Picked Up'||o.deliveryStatus==='On the Way').length;
-  const deliveredCount=myOrders.filter(o=>o.deliveryStatus==='Delivered').length;
-
-  // Digital Wallet Calculation with Time Filters based on o.deliveryPayout
-  const now = new Date();
-  const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
-  const startOfWeek = startOfDay - (now.getDay() * 86400000);
-  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
-
-  let todayEarning = 0, weekEarning = 0, monthEarning = 0, totalEarning = 0;
-
-  myOrders.filter(o=>o.deliveryStatus==='Delivered').forEach(o => {
-      const payout = o.deliveryPayout !== undefined ? o.deliveryPayout : (o.items ? o.items.reduce((s, it) => s + (typeof it.shipping === 'number' ? it.shipping : 50), 0) : 50);
-      totalEarning += payout;
-      if (o.createdAt >= startOfDay) todayEarning += payout;
-      if (o.createdAt >= startOfWeek) weekEarning += payout;
-      if (o.createdAt >= startOfMonth) monthEarning += payout;
-  });
-
-  $("#view").innerHTML=`
-    <section style="padding:14px">
-      <div class="card pad" style="display:flex;align-items:center;gap:12px;background:linear-gradient(135deg,var(--accent),var(--accentDark));color:#fff;border:none">
-        <div style="width:52px;height:52px;border-radius:50%;background:rgba(255,255,255,.2);display:grid;place-items:center;font-size:22px;flex-shrink:0"><i class="fa-solid fa-motorcycle"></i></div>
-        <div>
-          <div style="font-weight:800;font-family:Poppins;font-size:16px">${escapeHtml(PROFILE.name||'Delivery Partner')}</div>
-          <div style="font-size:12px;opacity:.9">Zone: ${escapeHtml(app.deliveryFrom||'')} → ${escapeHtml(app.deliveryTo||'')}</div>
-        </div>
-      </div>
-
-      ${readyForPickup>0?`<a href="#/delivery/available" class="card pad" style="margin-top:12px;display:flex;align-items:center;gap:10px;background:#FFF7E6;border-color:#FFE0A3"><i class="fa-solid fa-bell ring-pulse" style="color:#D97706;font-size:20px"></i><div style="font-weight:700;color:#B45309">${readyForPickup} order${readyForPickup===1?'':'s'} ready for pickup nearby!</div></a>`:''}
-
-      <h3 style="margin:16px 0 8px;font-family:Poppins;color:var(--accentDark)"><i class="fa-solid fa-wallet"></i> My Earnings</h3>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
-        <div class="card pad" style="padding:12px;text-align:center;"><div style="font-size:22px;font-weight:bold;color:var(--accentDark)">${money(todayEarning)}</div><div class="muted" style="font-size:11px;text-transform:uppercase">Today</div></div>
-        <div class="card pad" style="padding:12px;text-align:center;"><div style="font-size:22px;font-weight:bold;color:var(--accentDark)">${money(weekEarning)}</div><div class="muted" style="font-size:11px;text-transform:uppercase">This Week</div></div>
-        <div class="card pad" style="padding:12px;text-align:center;"><div style="font-size:22px;font-weight:bold;color:var(--accentDark)">${money(monthEarning)}</div><div class="muted" style="font-size:11px;text-transform:uppercase">This Month</div></div>
-        <div class="card pad" style="padding:12px;text-align:center;background:var(--accentLight);border-color:var(--success);"><div style="font-size:22px;font-weight:bold;color:var(--success)">${money(totalEarning)}</div><div class="muted" style="font-size:11px;text-transform:uppercase">Total Wallet</div></div>
-      </div>
-
-      <h3 style="margin:16px 0 8px;font-family:Poppins;color:var(--accentDark)"><i class="fa-solid fa-clipboard-check"></i> Delivery Stats</h3>
-      <div class="del-stat-grid">
-        <div class="del-stat"><div class="num">${readyForPickup}</div><div class="lbl">Ready for Pickup</div></div>
-        <div class="del-stat"><div class="num">${activeCount}</div><div class="lbl">In Progress</div></div>
-        <div class="del-stat"><div class="num">${deliveredCount}</div><div class="lbl">Delivered</div></div>
-      </div>
-      <div style="display:flex;gap:10px;margin-bottom:16px">
-        <a class="btn btn-block" href="#/delivery/available"><i class="fa-solid fa-list-check"></i> Available Orders</a>
-        <a class="btn btn-outline btn-block" href="#/delivery/my-orders"><i class="fa-solid fa-box"></i> My Orders</a>
-      </div>
-    </section>`;
-}
-
-let _seenAvailableOrderIds=null;
-function DeliveryAvailableView(){
-  setTopbar("Available Orders",true);setActiveTab("delivery");
-  if(!isApprovedDeliveryBoy()){routeTo("#/home");return}
-  const available=ORDERS.filter(o=>o.deliveryStatus==='Ready for Pickup'&&(!o.deliveryBoy||!o.deliveryBoy.email));
-
-  const currentIds=new Set(available.map(o=>o.firebaseKey));
-  if(_seenAvailableOrderIds===null){_seenAvailableOrderIds=currentIds}
-  else{
-    const hasNew=[...currentIds].some(id=>!_seenAvailableOrderIds.has(id));
-    if(hasNew)startRingtone();else stopRingtone();
-    _seenAvailableOrderIds=currentIds;
-  }
-
-  $("#view").innerHTML=`
-    <section style="padding:14px">
-      <h3 style="margin:0 0 12px;font-family:Poppins;color:var(--accentDark)"><i class="fa-solid fa-list-check"></i> Available Orders (${available.length})</h3>
-      ${available.length===0?'<div class="card pad muted" style="text-align:center">No orders ready for pickup right now.</div>':available.map(o=>`
-        <div class="del-order-card">
-          <div class="del-header"><strong>#${escapeHtml(o.orderId)}</strong><span class="muted" style="font-size:12px">${new Date(o.createdAt).toLocaleString()}</span></div>
-          <div style="font-weight:600">${escapeHtml(o.customer?.name||'Customer')}</div>
-          <div class="muted" style="font-size:13px"><i class="fa-solid fa-location-dot"></i> ${escapeHtml(o.customer?.address||'—')}, ${escapeHtml(o.customer?.city||'')} ${escapeHtml(o.customer?.pincode||'')}</div>
-          <div class="del-items">${o.items?.map(i=>i.name+' x'+i.qty).join(', ')||''}</div>
-          <div class="row" style="margin-bottom:10px"><div style="font-weight:700;font-size:16px;color:var(--accentDark)">Payout: ${money(o.deliveryPayout || 20)}</div></div>
-          ${slideActionHtml('slide-accept-'+o.firebaseKey,'Slide to Accept','#18A957')}
-        </div>`).join('')}
-    </section>`;
-  available.forEach(o=>{
-    initSlideAction('slide-accept-'+o.firebaseKey,()=>{
-      db.ref('orders/'+o.firebaseKey).transaction(current=>{
-        if(!current)return current;
-        if(current.deliveryBoy&&current.deliveryBoy.email)return; // abort — someone already claimed it
-        current.deliveryBoy={email:PROFILE.email,name:PROFILE.name,phone:PROFILE.phone};
-        current.deliveryStatus='Picked Up';
-        current.status='Out for Delivery';
-        return current;
-      }).then(result=>{
-        const val=result.snapshot.val();
-        if(result.committed&&val&&val.deliveryBoy&&val.deliveryBoy.email===PROFILE.email){
-          stopRingtone();toast("Order accepted — head to pickup!");routeTo("#/delivery/my-orders");
-        }else{
-          toast("Sorry, this order was just accepted by another partner.");render();
-        }
-      }).catch(()=>{alert("Failed.");render()});
-    });
-  });
-}
-
-function DeliveryMyOrdersView(){
-  setTopbar("My Deliveries",true);setActiveTab("delivery");
-  if(!isApprovedDeliveryBoy()){routeTo("#/home");return}
-  const myEmail=PROFILE.email.toLowerCase();
-  const myOrders=ORDERS.filter(o=>o.deliveryBoy&&o.deliveryBoy.email&&o.deliveryBoy.email.toLowerCase()===myEmail).sort((a,b)=>(b.createdAt||0)-(a.createdAt||0));
-  $("#view").innerHTML=`
-    <section style="padding:14px">
-      <h3 style="margin:0 0 12px;font-family:Poppins;color:var(--accentDark)"><i class="fa-solid fa-box"></i> My Deliveries (${myOrders.length})</h3>
-      ${myOrders.length===0?'<div class="card pad muted" style="text-align:center">No accepted orders yet.</div>':myOrders.map(o=>`
-        <div class="del-order-card">
-          <div class="del-header"><strong>#${escapeHtml(o.orderId)}</strong><span class="del-status-chip ${delStatusClass(o.deliveryStatus||'Picked Up')}">${escapeHtml(o.deliveryStatus||'Picked Up')}</span></div>
-          <div style="font-weight:600">${escapeHtml(o.customer?.name||'Customer')}</div>
-          <div class="muted" style="font-size:13px"><i class="fa-solid fa-phone"></i> ${escapeHtml(o.customer?.phone||'—')}</div>
-          <div class="muted" style="font-size:13px"><i class="fa-solid fa-location-dot"></i> ${escapeHtml(o.customer?.address||'—')}, ${escapeHtml(o.customer?.city||'')} ${escapeHtml(o.customer?.pincode||'')}</div>
-          <div class="del-items">${o.items?.map(i=>i.name+' x'+i.qty).join(', ')||''}</div>
-          <div style="font-weight:700;margin:6px 0;color:var(--accentDark)">Payout: ${money(o.deliveryPayout || 20)} <span class="muted" style="font-weight:400;font-size:12px">(${o.paymentMethod==='online'?'UPI':'COD'})</span></div>
-          ${o.deliveryStatus==='Picked Up'?`<div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn btn-block" style="background:#1D4ED8;flex:1" data-update="${o.firebaseKey}" data-status="On the Way"><i class="fa-solid fa-route"></i> Start Delivery</button><button class="btn btn-block" style="background:#0ea5e9;flex:1" data-live-nav="${o.firebaseKey}"><i class="fa-solid fa-map"></i> Live Map</button></div>`:''}
-          ${o.deliveryStatus==='On the Way'?`<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px"><button class="btn" style="background:#0ea5e9;flex:1" data-live-nav="${o.firebaseKey}"><i class="fa-solid fa-map"></i> Live Map</button></div>${slideActionHtml('slide-complete-'+o.firebaseKey,'Slide to Complete Delivery','#18A957')}`:''}
-          ${o.deliveryStatus==='Delivered'?'<div class="muted" style="font-size:12px;margin-top:4px"><i class="fa-solid fa-circle-check" style="color:var(--success)"></i> Delivered & Commission Added to Wallet</div>':''}
-        </div>`).join('')}
-    </section>`;
-  $$("[data-update]").forEach(btn=>btn.addEventListener("click",()=>{
-    const key=btn.dataset.update;const newStatus=btn.dataset.status;
-    db.ref('orders/'+key).update({deliveryStatus:newStatus,status:'Out for Delivery'}).then(()=>{startLiveLocationTracking(key);toast("Updated!");render()}).catch(()=>alert("Failed."));
-  }));
-  $$("[data-live-nav]").forEach(btn=>btn.addEventListener("click",()=>{
-    const orderKey=btn.dataset.liveNav;routeTo("#/delivery/live-map/"+encodeURIComponent(orderKey));
-  }));
-  myOrders.filter(o=>o.deliveryStatus==='On the Way').forEach(o=>{
-    initSlideAction('slide-complete-'+o.firebaseKey,()=>{
-      stopLiveLocationTracking();
-      db.ref('orders/'+o.firebaseKey).update({deliveryStatus:'Delivered',status:'Delivered',trackingEndedAt:Date.now()}).then(()=>{toast("Order delivered! 🎉");render()}).catch(()=>{alert("Failed.");render()});
-    });
-  });
-}
-
-/* ===== Vendor Panel Views ===== */
-function vendorStatusScreen(title,msg,icon,color){
-  setTopbar("Vendor Panel",true);setActiveTab("");
-  $("#view").innerHTML=`<section style="padding:14px"><div class="card pad" style="text-align:center;padding:32px 20px">
-    <div style="width:72px;height:72px;border-radius:50%;background:${color}22;display:grid;place-items:center;margin:0 auto 14px"><i class="fa-solid ${icon}" style="font-size:30px;color:${color}"></i></div>
-    <h2 style="margin:0 0 8px;font-family:Poppins;color:var(--accentDark)">${title}</h2>
-    <p class="muted" style="margin:0">${msg}</p>
-    <a href="#/home" class="btn btn-outline btn-block" style="margin-top:18px">Back to Home</a>
-  </div></section>`;
-}
-function VendorEntryView(){
-  const v=myVendorRecord();
-  if(!v){routeTo("#/vendor/register");return}
-  if(v.status==='pending_payment'){routeTo("#/vendor/subscription");return}
-  if(v.status==='pending_approval')return vendorStatusScreen("Application Under Review","Our team is reviewing your restaurant details. This usually takes 24-48 hours — we'll notify you once approved.","fa-clock","#D97706");
-  if(v.status==='Approved'){routeTo("#/vendor/dashboard");return}
-  if(v.status==='rejected')return vendorStatusScreen("Application Rejected","Unfortunately your vendor application wasn't approved this time. Contact support for details.","fa-circle-xmark","#E11D48");
-  if(v.status==='suspended')return vendorStatusScreen("Account Suspended","Your Vendor Panel access has been temporarily suspended by the admin.","fa-triangle-exclamation","#D97706");
-  if(v.status==='blocked')return vendorStatusScreen("Account Blocked","Your Vendor Panel access has been blocked. Contact support for assistance.","fa-ban","#E11D48");
-  routeTo("#/vendor/register");
-}
-
-function VendorRegisterView(){
-  setTopbar("Vendor Registration",true);setActiveTab("");
-  let uploads={logo:"",images:[],documents:[]};
-  $("#view").innerHTML=`
-    <section style="padding:14px" class="auth-animate"><div class="card pad">
-      <div style="text-align:center;margin-bottom:16px">
-        <div style="width:72px;height:72px;border-radius:999px;background:var(--accentLight);display:grid;place-items:center;margin:0 auto 10px"><i class="fa-solid fa-store" style="font-size:32px;color:var(--accent)"></i></div>
-        <h2 style="margin:0 0 6px;font-family:Poppins;color:var(--accentDark)">Register Your Restaurant</h2>
-        <p class="muted" style="margin:0">Join Zesto as a vendor partner</p>
-      </div>
-      <form id="vendor-reg-form">
-        <label>Restaurant Name *</label><input id="vr-restname" required>
-        <label>Owner Name *</label><input id="vr-owner" required>
-        <div class="row" style="gap:10px"><div style="flex:1"><label>Mobile *</label><input id="vr-mobile" type="tel" required></div><div style="flex:1"><label>Email *</label><input id="vr-email" type="email" required></div></div>
-        <label>Restaurant Address *</label><input id="vr-address" required>
-        <div class="row" style="gap:10px"><div style="flex:1"><label>City</label><input id="vr-city" value="${escapeHtml(USER_CITY||'')}"></div><div style="flex:1"><label>Pincode</label><input id="vr-pincode"></div></div>
-        <label>Restaurant Category *</label>
-        <select id="vr-category" required><option value="">Select...</option><option>North Indian</option><option>South Indian</option><option>Chinese</option><option>Fast Food</option><option>Bakery</option><option>Grocery</option><option>Multi-Cuisine</option><option>Other</option></select>
-        <div class="row" style="gap:10px"><div style="flex:1"><label>Opening Time *</label>${timePickerHtml('vr-open','')}</div><div style="flex:1"><label>Closing Time *</label>${timePickerHtml('vr-close','')}</div></div>
-        <h3 style="margin:16px 0 8px;font-family:Poppins;color:var(--accentDark)"><i class="fa-solid fa-file-lines"></i> Legal / KYC (Optional where noted)</h3>
-        <label>GST Number <span class="muted" style="font-weight:400">(optional)</span></label><input id="vr-gst">
-        <label>FSSAI License *</label><input id="vr-fssai" required>
-        <label>Aadhaar / PAN Number</label><input id="vr-idproof">
-        <h3 style="margin:16px 0 8px;font-family:Poppins;color:var(--accentDark)"><i class="fa-solid fa-building-columns"></i> Payout Details</h3>
-        <label>Bank Account Number *</label><input id="vr-bank" required>
-        <label>UPI ID *</label><input id="vr-upi" required placeholder="yourname@upi">
-        <h3 style="margin:16px 0 8px;font-family:Poppins;color:var(--accentDark)"><i class="fa-solid fa-image"></i> Media & Documents</h3>
-        <label>Restaurant Logo *</label>
-        <div class="dropzone" id="vr-logo-dz"><i class="fa-solid fa-cloud-arrow-up" style="font-size:22px"></i><div style="font-weight:700;margin-top:4px;font-size:13px">Click to upload logo</div></div>
-        <input id="vr-logo-input" type="file" accept="image/*" style="display:none">
-        <div id="vr-logo-thumb" style="margin-top:8px"></div>
-        <label style="margin-top:12px">Restaurant Images *</label>
-        <div class="dropzone" id="vr-img-dz"><i class="fa-solid fa-cloud-arrow-up" style="font-size:22px"></i><div style="font-weight:700;margin-top:4px;font-size:13px">Click to upload images</div></div>
-        <input id="vr-img-input" type="file" accept="image/*" multiple style="display:none">
-        <div class="thumbs" id="vr-img-thumbs"></div>
-        <label style="margin-top:12px">Documents (FSSAI/GST certificate etc.) *</label>
-        <div class="dropzone" id="vr-doc-dz"><i class="fa-solid fa-cloud-arrow-up" style="font-size:22px"></i><div style="font-weight:700;margin-top:4px;font-size:13px">Click to upload documents</div></div>
-        <input id="vr-doc-input" type="file" accept="image/*,.pdf" multiple style="display:none">
-        <div id="vr-doc-list" class="muted" style="font-size:12px;margin-top:6px"></div>
-        <label style="display:flex;align-items:center;gap:8px;margin:18px 0;cursor:pointer">
-          <input type="checkbox" id="vr-terms" style="width:20px;height:20px;margin:0">
-          <span style="font-size:13px">I accept the <a href="#" style="color:var(--accent);font-weight:700">Terms & Conditions</a> for Zesto Vendor Partners.</span>
-        </label>
-        <button type="submit" class="btn btn-block"><i class="fa-solid fa-paper-plane"></i> Submit Registration</button>
-      </form>
-    </div></section>`;
-  if(PROFILE.email)$("#vr-email").value=PROFILE.email;if(PROFILE.name)$("#vr-owner").value=PROFILE.name;if(PROFILE.phone)$("#vr-mobile").value=PROFILE.phone;
-  wireTimePickerOk('vr-open');wireTimePickerOk('vr-close');
-
-  $("#vr-logo-dz").addEventListener("click",()=>$("#vr-logo-input").click());
-  $("#vr-logo-input").addEventListener("change",async e=>{const f=e.target.files[0];if(!f)return;uploads.logo=await compressToDataURL(f,500,500,.85);$("#vr-logo-thumb").innerHTML=`<img src="${uploads.logo}" style="width:70px;height:70px;object-fit:cover;border-radius:12px">`});
-  $("#vr-img-dz").addEventListener("click",()=>$("#vr-img-input").click());
-  $("#vr-img-input").addEventListener("change",async e=>{uploads.images=[];for(const f of Array.from(e.target.files||[]))uploads.images.push(await compressToDataURL(f,1200,1200,.85));$("#vr-img-thumbs").innerHTML=uploads.images.map(u=>`<div class="thumb"><img src="${u}"></div>`).join('')});
-  $("#vr-doc-dz").addEventListener("click",()=>$("#vr-doc-input").click());
-  $("#vr-doc-input").addEventListener("change",async e=>{uploads.documents=[];for(const f of Array.from(e.target.files||[])){if(f.type.startsWith("image/"))uploads.documents.push(await compressToDataURL(f,1600,1600,.85))}$("#vr-doc-list").textContent=uploads.documents.length+" document(s) ready to upload."});
-
-  $("#vendor-reg-form").addEventListener("submit",e=>{
-    e.preventDefault();
-    const restaurantName=$("#vr-restname").value.trim();const ownerName=$("#vr-owner").value.trim();const mobile=$("#vr-mobile").value.trim();const email=$("#vr-email").value.trim();
-    const address=$("#vr-address").value.trim();const category=$("#vr-category").value;const openingTime=readTimePicker('vr-open');const closingTime=readTimePicker('vr-close');
-    const fssai=$("#vr-fssai").value.trim();const bankAccount=$("#vr-bank").value.trim();const upiId=$("#vr-upi").value.trim();
-    if(!restaurantName||!ownerName||!mobile||!email||!address||!category||!openingTime||!closingTime||!fssai||!bankAccount||!upiId){alert("Please fill all required fields.");return}
-    if(!uploads.logo||!uploads.images.length||!uploads.documents.length){alert("Please upload logo, at least one restaurant image, and at least one document.");return}
-    if(!$("#vr-terms").checked){alert("Please accept the Terms & Conditions.");return}
-    const data={
-      uid:AUTH_USER.uid,restaurantName,ownerName,mobile,email,address,city:$("#vr-city").value.trim(),pincode:$("#vr-pincode").value.trim(),
-      category,openingTime,closingTime,gst:$("#vr-gst").value.trim(),fssai,idProof:$("#vr-idproof").value.trim(),
-      bankAccount,upiId,logoUrl:uploads.logo,imageUrls:uploads.images,documentUrls:uploads.documents,
-      termsAccepted:true,status:'pending_payment',online:false,prepTimeMinutes:30,
-      createdAt:Date.now()
-    };
-    vendorsRef.child(AUTH_USER.uid).set(data).then(()=>{toast("Registration submitted!");routeTo("#/vendor/subscription")}).catch(()=>alert("Failed to submit. Please try again."));
-  });
-}
-
-function VendorSubscriptionView(){
-  setTopbar("Choose a Plan",true);setActiveTab("");
-  const v=myVendorRecord();
-  if(!v){routeTo("#/vendor/register");return}
-  let selectedPlan=null;
-  $("#view").innerHTML=`
-    <section style="padding:14px">
-      <div style="text-align:center;margin-bottom:16px">
-        <h2 style="margin:0 0 6px;font-family:Poppins;color:var(--accentDark)">Activate Your Vendor Panel</h2>
-        <p class="muted" style="margin:0">Choose a subscription plan to get started</p>
-      </div>
-      <div id="vendor-plans-list">
-        ${VENDOR_PLANS.length===0?'<div class="card pad muted" style="text-align:center">No plans available right now — please check back soon.</div>':VENDOR_PLANS.map(p=>`
-          <div class="payment-option" data-plan="${p.id}" style="margin-bottom:10px">
-            <div class="radio-dot"></div>
-            <div style="flex:1">
-              <div style="font-weight:700;color:#111">${escapeHtml(p.name)} ${p.trialDays?`<span class="chip" style="font-size:11px;background:var(--accentLight);color:var(--accentDark)">${p.trialDays}-day trial</span>`:''}</div>
-              <div class="muted" style="font-size:12px">${p.durationDays} days access</div>
-            </div>
-            <div style="font-weight:800;color:var(--accentDark)">${money(p.price)}</div>
-          </div>`).join('')}
-      </div>
-      <button class="btn btn-block" id="vendor-pay-btn" style="margin-top:16px" ${VENDOR_PLANS.length===0?'disabled':''}><i class="fa-solid fa-lock"></i> Proceed to Payment</button>
-    </section>`;
-  $$("#vendor-plans-list .payment-option").forEach(opt=>opt.addEventListener("click",()=>{
-    $$("#vendor-plans-list .payment-option").forEach(o=>o.classList.remove("selected"));opt.classList.add("selected");selectedPlan=opt.dataset.plan;
-  }));
-  $("#vendor-pay-btn").addEventListener("click",()=>{
-    if(!selectedPlan){alert("Please select a plan.");return}
-    const plan=VENDOR_PLANS.find(p=>p.id===selectedPlan);
-    const btn=$("#vendor-pay-btn");btn.disabled=true;btn.innerHTML="Processing payment...";
-    setTimeout(()=>{
-      const expiresAt=Date.now()+(plan.durationDays||30)*86400000;
-      vendorsRef.child(v.uid).update({status:'pending_approval',planId:plan.id,planName:plan.name,subscriptionExpiresAt:expiresAt,paidAt:Date.now()}).then(()=>{
-        showVendorSuccessAnimation();
-      }).catch(()=>{alert("Payment failed. Please try again.");btn.disabled=false;btn.innerHTML='<i class="fa-solid fa-lock"></i> Proceed to Payment'});
-    },1200);
-  });
-}
-function showVendorSuccessAnimation(){
-  const div=document.createElement("div");
-  div.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9998;display:flex;align-items:center;justify-content:center;padding:20px";
-  div.innerHTML=`<div class="card pad" style="max-width:340px;text-align:center;padding:32px 20px">
-    <div class="ring-pulse" style="width:80px;height:80px;border-radius:50%;background:#E6F7EE;display:grid;place-items:center;margin:0 auto 16px;font-size:38px;color:var(--success)"><i class="fa-solid fa-circle-check"></i></div>
-    <h2 style="margin:0 0 8px;font-family:Poppins;color:var(--accentDark)">Congratulations!</h2>
-    <p class="muted" style="margin:0 0 18px">Your Vendor Panel has been activated successfully. Our team will review your application shortly.</p>
-    <button class="btn btn-block" id="vendor-success-ok">Continue</button>
-  </div>`;
-  document.body.appendChild(div);
-  $("#vendor-success-ok").addEventListener("click",()=>{div.remove();routeTo("#/vendor")});
-}
-
-function VendorDashboardView(){
-  const v=myVendorRecord();
-  if(!v||v.status!=='Approved'){routeTo("#/vendor");return}
-  setTopbar("Vendor Dashboard",false);setActiveTab("");
-  const myOrders=ORDERS; // single-catalog store — all orders belong to this restaurant
-  const now=new Date();const startOfDay=new Date(now.getFullYear(),now.getMonth(),now.getDate()).getTime();
-  const todayOrders=myOrders.filter(o=>o.createdAt>=startOfDay);
-  const byStage=s=>myOrders.filter(o=>(o.deliveryStatus||'New Order')===s&&!(o.status&&o.status.includes('Cancelled'))).length;
-  const completedToday=todayOrders.filter(o=>isOrderCompleted(o));
-  const myProductIds=new Set(PRODUCTS.filter(p=>p.vendorUid===v.uid).map(p=>p.id));
-  const todayEarnings=completedToday.reduce((s,o)=>{
-    let orderEarn=0;
-    (o.items||[]).forEach(it=>{
-      if(!myProductIds.has(it.productId))return;
-      const p=PRODUCTS.find(x=>x.id===it.productId);
-      const earning=(p&&p.vendorEarnings!==undefined)?p.vendorEarnings:0;
-      orderEarn+=earning*it.qty;
-    });
-    return s+orderEarn;
-  },0);
-  const isOnline=(v.availabilityStatus||(v.online?'Live':'Offline'))==='Live';
-
-  $("#view").innerHTML=`
-    <section style="padding:14px">
-      <div class="card pad" style="display:flex;align-items:center;gap:12px;background:linear-gradient(135deg,var(--accent),var(--accentDark));color:#fff;border:none">
-        ${v.logoUrl?`<img src="${v.logoUrl}" style="width:52px;height:52px;border-radius:14px;object-fit:cover;flex-shrink:0">`:`<div style="width:52px;height:52px;border-radius:14px;background:rgba(255,255,255,.2);display:grid;place-items:center;font-size:22px;flex-shrink:0"><i class="fa-solid fa-store"></i></div>`}
-        <div style="flex:1;min-width:0">
-          <div style="font-weight:800;font-family:Poppins;font-size:16px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml(v.restaurantName)}</div>
-          <div style="font-size:12px;opacity:.9">${escapeHtml(v.category||'')}</div>
-        </div>
-      </div>
-
-      <div class="card pad" style="margin-top:12px;display:flex;align-items:center;justify-content:space-between">
-        <div><div style="font-weight:700">${isOnline?'You are Online':'You are Offline'}</div><div class="muted" style="font-size:12px">${isOnline?'Accepting new orders':'Not receiving new orders — other restaurants stay open'}</div></div>
-        <label style="position:relative;display:inline-block;width:52px;height:30px">
-          <input type="checkbox" id="vendor-online-toggle" ${isOnline?'checked':''} style="opacity:0;width:0;height:0">
-          <span id="vendor-online-slider" style="position:absolute;inset:0;background:${isOnline?'var(--success)':'#ccc'};border-radius:999px;cursor:pointer;transition:.2s"></span>
-          <span id="vendor-online-knob" style="position:absolute;top:3px;left:${isOnline?'25px':'3px'};width:24px;height:24px;background:#fff;border-radius:50%;transition:.2s;box-shadow:0 1px 3px rgba(0,0,0,.3)"></span>
-        </label>
-      </div>
-
-      <h3 style="margin:16px 0 8px;font-family:Poppins;color:var(--accentDark)">Today</h3>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
-        <div class="card pad" style="text-align:center;padding:12px"><div style="font-size:20px;font-weight:800;color:var(--accentDark)">${todayOrders.length}</div><div class="muted" style="font-size:11px">Today's Orders</div></div>
-        <div class="card pad" style="text-align:center;padding:12px"><div style="font-size:20px;font-weight:800;color:var(--success)">${money(todayEarnings)}</div><div class="muted" style="font-size:11px">Today's Earnings</div></div>
-      </div>
-
-      <h3 style="margin:16px 0 8px;font-family:Poppins;color:var(--accentDark)"><i class="fa-solid fa-wallet"></i> Earnings</h3>
-      ${(()=>{
-        const myProductIds=new Set(PRODUCTS.filter(p=>p.vendorUid===v.uid).map(p=>p.id));
-        const now2=new Date();const startWeek=new Date(now2);startWeek.setDate(now2.getDate()-now2.getDay());startWeek.setHours(0,0,0,0);
-        const startMonth=new Date(now2.getFullYear(),now2.getMonth(),1).getTime();
-        let weekEarn=0,monthEarn=0,totalEarn=0,totalSales=0,orderCount=0;
-        ORDERS.filter(o=>isOrderCompleted(o)&&o.items&&o.items.some(it=>myProductIds.has(it.productId))).forEach(o=>{
-          let touched=false;
-          o.items.forEach(it=>{
-            if(!myProductIds.has(it.productId))return;
-            touched=true;
-            const p=PRODUCTS.find(x=>x.id===it.productId);
-            const earning=(p&&p.vendorEarnings!==undefined)?p.vendorEarnings:0;
-            totalSales+=(it.price||0)*it.qty;totalEarn+=earning*it.qty;
-            if(o.createdAt>=startWeek.getTime())weekEarn+=earning*it.qty;
-            if(o.createdAt>=startMonth)monthEarn+=earning*it.qty;
-          });
-          if(touched)orderCount++;
-        });
-        return `<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
-          <div class="card pad" style="text-align:center;padding:12px"><div style="font-size:18px;font-weight:800;color:var(--accentDark)">${money(totalSales)}</div><div class="muted" style="font-size:11px">Total Sales</div></div>
-          <div class="card pad" style="text-align:center;padding:12px"><div style="font-size:18px;font-weight:800;color:var(--success)">${money(totalEarn)}</div><div class="muted" style="font-size:11px">Total Earnings</div></div>
-        </div>`;
-      })()}
-
-      <h3 style="margin:16px 0 8px;font-family:Poppins;color:var(--accentDark)">Order Pipeline</h3>
-      <div class="del-stat-grid">
-        <div class="del-stat"><div class="num">${byStage('New Order')}</div><div class="lbl">Pending</div></div>
-        <div class="del-stat"><div class="num">${byStage('Accepted')}</div><div class="lbl">Accepted</div></div>
-        <div class="del-stat"><div class="num">${byStage('Preparing')}</div><div class="lbl">Preparing</div></div>
-        <div class="del-stat"><div class="num">${byStage('Ready for Pickup')}</div><div class="lbl">Ready</div></div>
-        <div class="del-stat"><div class="num">${byStage('Delivered')}</div><div class="lbl">Completed</div></div>
-        <div class="del-stat"><div class="num">${myOrders.filter(o=>o.status&&o.status.includes('Cancelled')).length}</div><div class="lbl">Cancelled</div></div>
-      </div>
-
-      <div style="display:flex;gap:10px;margin-top:16px">
-        <a class="btn btn-block" href="#/vendor/orders"><i class="fa-solid fa-clipboard-list"></i> Manage Orders</a>
-      </div>
-      <div style="display:flex;gap:10px;margin-top:10px">
-        <a class="btn btn-outline btn-block" href="#/vendor/settings"><i class="fa-solid fa-gear"></i> Settings</a>
-        <a class="btn btn-outline btn-block" href="#/vendor/help"><i class="fa-solid fa-circle-question"></i> Help</a>
-      </div>
-    </section>`;
-  $("#vendor-online-toggle").addEventListener("change",e=>{
-    const status=e.target.checked?'Live':'Offline';
-    // Update UI immediately for responsiveness
-    const slider=$("#vendor-online-slider");
-    const knob=$("#vendor-online-knob");
-    if(slider){slider.style.background=e.target.checked?'var(--success)':'#ccc'}
-    if(knob){knob.style.left=e.target.checked?'25px':'3px'}
-    // Sync with Firebase
-    vendorsRef.child(v.uid).update({availabilityStatus:status,online:e.target.checked}).then(()=>toast(e.target.checked?"You're online — accepting orders":"You're offline — your restaurant is paused")).catch(err=>{e.target.checked=!e.target.checked;alert("Failed to update status. Try again.")});
-  });
-}
-
-let _seenVendorOrderIds=null;
-function VendorOrdersView(){
-  const v=myVendorRecord();
-  if(!v||v.status!=='Approved'){routeTo("#/vendor");return}
-  setTopbar("Manage Orders",true);setActiveTab("");
-  const active=ORDERS.filter(o=>!isOrderCompleted(o)&&!(o.status&&o.status.includes('Cancelled'))).sort((a,b)=>(b.createdAt||0)-(a.createdAt||0));
-
-  const currentIds=new Set(active.map(o=>o.firebaseKey));
-  if(_seenVendorOrderIds===null){_seenVendorOrderIds=currentIds}
-  else{
-    const newOnes=active.filter(o=>!_seenVendorOrderIds.has(o.firebaseKey)&&(o.deliveryStatus||'New Order')==='New Order');
-    _seenVendorOrderIds=currentIds;
-    if(newOnes.length>0)showVendorNewOrderPopup(newOnes[0]);
-  }
-
-  $("#view").innerHTML=`
-    <section style="padding:14px">
-      <h3 style="margin:0 0 12px;font-family:Poppins;color:var(--accentDark)">Active Orders (${active.length})</h3>
-      ${active.length===0?'<div class="card pad muted" style="text-align:center">No active orders right now.</div>':active.map(o=>{
-        const stage=o.deliveryStatus||'New Order';
-        return `<div class="del-order-card">
-          <div class="del-header"><strong>#${escapeHtml(o.orderId)}</strong><span class="del-status-chip ${delStatusClass(stage)}">${escapeHtml(stage)}</span></div>
-          <div style="font-weight:600">${escapeHtml(o.customer?.name||'Customer')}</div>
-          <div class="del-items">${o.items?.map(i=>i.name+' x'+i.qty).join(', ')||''}</div>
-          <div style="font-weight:700;margin:6px 0;color:var(--accentDark)">${money(o.amount)}</div>
-          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px">
-            ${stage==='New Order'?`<button class="btn btn-sm btn-success" data-accept="${o.firebaseKey}"><i class="fa-solid fa-check"></i> Accept</button><button class="btn btn-sm btn-danger" data-reject="${o.firebaseKey}"><i class="fa-solid fa-xmark"></i> Reject</button>`:''}
-            ${stage==='Accepted'?`<button class="btn btn-sm" style="background:#B45309" data-stage="${o.firebaseKey}" data-to="Preparing"><i class="fa-solid fa-fire-burner"></i> Start Preparing</button>`:''}
-            ${stage==='Preparing'?`<button class="btn btn-sm" style="background:#6D28D9" data-stage="${o.firebaseKey}" data-to="Ready for Pickup"><i class="fa-solid fa-box"></i> Mark Ready</button>${(VENDOR_SETTINGS.extraTimeOptions||[5,10,15,20]).map(m=>`<button class="btn btn-sm btn-outline" data-addtime="${o.firebaseKey}" data-mins="${m}">+${m} min</button>`).join('')}`:''}
-            ${stage==='Ready for Pickup'?`<button class="btn btn-sm btn-outline" data-assign="${o.firebaseKey}"><i class="fa-solid fa-motorcycle"></i> Assign Delivery Boy</button>`:''}
-            ${o.deliveryBoy?`<span class="muted" style="font-size:12px;align-self:center">Delivery: ${escapeHtml(o.deliveryBoy.name||'')}</span>`:''}
-          </div>
-        </div>`;
-      }).join('')}
-    </section>`;
-  $$("[data-accept]").forEach(b=>b.addEventListener("click",()=>openPrepTimeModal(b.dataset.accept)));
-  $$("[data-reject]").forEach(b=>b.addEventListener("click",()=>{if(confirm("Reject this order?"))db.ref('orders/'+b.dataset.reject).update({status:'Cancelled by Restaurant',deliveryStatus:'New Order'}).then(()=>toast("Order rejected"))}));
-  $$("[data-stage]").forEach(b=>b.addEventListener("click",()=>updateOrderStage(b.dataset.stage,b.dataset.to)));
-  $$("[data-addtime]").forEach(b=>b.addEventListener("click",()=>{
-    const o=ORDERS.find(x=>x.firebaseKey===b.dataset.addtime);if(!o)return;
-    const add=parseInt(b.dataset.mins)||10;
-    const cur=o.prepTimeMinutes||30;const max=VENDOR_SETTINGS.maxPrepMinutes||120;
-    const next=Math.min(max,cur+add);
-    db.ref('orders/'+o.firebaseKey).update({prepTimeMinutes:next}).then(()=>toast("Prep time updated: "+next+" min"));
-  }));
-  $$("[data-assign]").forEach(b=>b.addEventListener("click",()=>openAssignDeliveryModal(b.dataset.assign)));
-}
-function openPrepTimeModal(orderKey){
-  const options=[15,20,25,30,35,40,45,50,60];
-  const div=document.createElement("div");
-  div.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9998;display:flex;align-items:center;justify-content:center;padding:20px";
-  div.innerHTML=`<div class="card pad" style="max-width:340px;width:100%">
-    <h3 style="margin:0 0 4px;font-family:Poppins;color:var(--accentDark)">Accept Order</h3>
-    <p class="muted" style="font-size:13px;margin:0 0 12px">Select estimated preparation time — this will show to the customer immediately.</p>
-    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">
-      ${options.map(m=>`<button class="btn btn-outline btn-sm" data-preptime-pick="${m}">${m} min</button>`).join('')}
-    </div>
-    <button class="btn btn-block" style="margin-top:14px;background:#eee;color:#111" id="preptime-cancel">Cancel</button>
-  </div>`;
-  document.body.appendChild(div);
-  div.querySelectorAll("[data-preptime-pick]").forEach(btn=>btn.addEventListener("click",()=>{
-    const mins=parseInt(btn.dataset.preptimePick);
-    db.ref('orders/'+orderKey).update({deliveryStatus:'Accepted',prepTimeMinutes:mins}).then(()=>{toast("Order accepted — "+mins+" min prep time set");div.remove()}).catch(()=>alert("Failed."));
-  }));
-  $("#preptime-cancel").addEventListener("click",()=>div.remove());
-}
-function updateOrderStage(key,stage){
-  db.ref('orders/'+key).update({deliveryStatus:stage}).then(()=>toast("Order updated: "+stage)).catch(()=>alert("Failed."));
-}
-function openAssignDeliveryModal(orderKey){
-  const available=DELIVERY_APPS.filter(a=>a.status==='Approved');
-  const div=document.createElement("div");
-  div.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9998;display:flex;align-items:center;justify-content:center;padding:20px";
-  div.innerHTML=`<div class="card pad" style="max-width:360px;width:100%">
-    <h3 style="margin:0 0 12px;font-family:Poppins;color:var(--accentDark)">Assign Delivery Partner</h3>
-    ${available.length===0?'<div class="muted">No approved delivery partners available.</div>':available.map(a=>`<button class="btn btn-outline btn-block" style="margin-bottom:8px;text-align:left" data-assign-to="${escapeHtml(a.email)}" data-name="${escapeHtml(a.name)}" data-phone="${escapeHtml(a.phone||'')}">${escapeHtml(a.name)}</button>`).join('')}
-    <button class="btn btn-block" id="assign-cancel" style="margin-top:8px;background:#eee;color:#111">Cancel</button>
-  </div>`;
-  document.body.appendChild(div);
-  div.querySelectorAll("[data-assign-to]").forEach(btn=>btn.addEventListener("click",()=>{
-    db.ref('orders/'+orderKey).update({deliveryBoy:{email:btn.dataset.assignTo,name:btn.dataset.name,phone:btn.dataset.phone},deliveryStatus:'Picked Up',status:'Out for Delivery',deliveryAssignedAt:Date.now(),liveLocation:{lat:0,lng:0}}).then(()=>{toast("Assigned to "+btn.dataset.name);div.remove()}).catch(()=>alert("Failed."));
-  }));
-  $("#assign-cancel").addEventListener("click",()=>div.remove());
-}
-function showVendorNewOrderPopup(o){
-  if(document.getElementById("vendor-order-modal"))return; // avoid stacking popups if another new order arrives mid-alert
-  startRingtone();
-  let seconds=30;
-  const div=document.createElement("div");
-  div.id="vendor-order-modal";
-  div.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9998;display:flex;align-items:center;justify-content:center;padding:20px";
-  div.innerHTML=`<div class="card pad" style="max-width:360px;width:100%;text-align:center">
-    <div class="ring-pulse" style="width:60px;height:60px;border-radius:50%;background:var(--accentLight);display:grid;place-items:center;margin:0 auto 12px;font-size:26px;color:var(--accent)"><i class="fa-solid fa-bell"></i></div>
-    <h2 style="margin:0 0 4px;font-family:Poppins;color:var(--accentDark)">New Order!</h2>
-    <div class="muted" style="font-size:13px;margin-bottom:10px">#${escapeHtml(o.orderId)}</div>
-    <div style="text-align:left;background:var(--accentLight);border-radius:10px;padding:10px;margin-bottom:12px">
-      ${(o.items||[]).map(it=>`<div class="row" style="font-size:13px"><div>${escapeHtml(it.name)} x${it.qty}</div></div>`).join('')}
-      <div class="row" style="font-weight:800;color:var(--accentDark);margin-top:6px"><div>Total</div><div>${money(o.amount)}</div></div>
-    </div>
-    <div id="vendor-order-timer" style="font-weight:700;color:#D97706;margin-bottom:10px">Auto-closing in ${seconds}s</div>
-    <div style="display:flex;gap:10px">
-      <button class="btn btn-outline btn-block" id="vendor-order-reject">Reject</button>
-      <button class="btn btn-success btn-block" id="vendor-order-accept">Accept</button>
-    </div>
-  </div>`;
-  document.body.appendChild(div);
-  const timer=setInterval(()=>{
-    seconds--;
-    const el=document.getElementById('vendor-order-timer');
-    if(el)el.textContent="Auto-closing in "+seconds+"s";
-    if(seconds<=0){clearInterval(timer);stopRingtone();div.remove()}
-  },1000);
-  $("#vendor-order-accept").addEventListener("click",()=>{clearInterval(timer);stopRingtone();updateOrderStage(o.firebaseKey,"Accepted");div.remove();routeTo("#/vendor/orders")});
-  $("#vendor-order-reject").addEventListener("click",()=>{clearInterval(timer);stopRingtone();db.ref('orders/'+o.firebaseKey).update({status:'Cancelled by Restaurant'}).then(()=>toast("Order rejected"));div.remove()});
-}
-
-function VendorProductsView(){
-  const v=myVendorRecord();
-  if(!v||v.status!=='Approved'){routeTo("#/vendor");return}
-  setTopbar("My Products",true);setActiveTab("");
-  const myProducts=PRODUCTS.filter(p=>p.vendorUid===v.uid);
-  $("#view").innerHTML=`<section style="padding:14px">
-    <div class="card pad" style="margin-bottom:12px"><p class="muted" style="font-size:13px;margin:0"><i class="fa-solid fa-circle-info"></i> Selling prices shown to customers are controlled only by Admin. You can submit your cost price for each product below — your earnings are calculated from this.</p></div>
-    <h3 style="margin:0 0 12px;font-family:Poppins;color:var(--accentDark)">Products Assigned to You (${myProducts.length})</h3>
-    ${myProducts.length===0?'<div class="card pad muted" style="text-align:center">No products assigned to you yet. Contact Admin to get products linked to your restaurant.</div>':myProducts.map(p=>`
-      <div class="card pad" style="display:flex;gap:12px;margin-bottom:10px;align-items:center">
-        <img src="${p.imageUrls[0]||''}" style="width:56px;height:56px;border-radius:10px;object-fit:cover;flex-shrink:0">
-        <div style="flex:1;min-width:0">
-          <div style="font-weight:700">${escapeHtml(p.name)}</div>
-          <div class="muted" style="font-size:12px">Selling Price: <strong style="color:var(--accentDark)">${money(p.price)}</strong></div>
-          <div style="display:flex;gap:6px;margin-top:6px;align-items:center">
-            <input type="number" min="0" id="vp-cost-${p.id}" value="${p.vendorCost!==undefined?p.vendorCost:''}" placeholder="Your cost price" style="padding:8px;font-size:13px">
-            <button class="btn btn-sm" data-save-cost="${p.id}">Save</button>
-          </div>
-          ${p.vendorCost!==undefined?`<div class="muted" style="font-size:11px;margin-top:4px">Your profit per unit: <strong style="color:var(--success)">${money((p.price||0)-p.vendorCost)}</strong></div>`:''}
-        </div>
-      </div>`).join('')}
-  </section>`;
-  $$("[data-save-cost]").forEach(btn=>btn.addEventListener("click",()=>{
-    const pid=btn.dataset.saveCost;
-    const p=PRODUCTS.find(x=>x.id===pid);if(!p)return;
-    const cost=parseFloat(document.getElementById('vp-cost-'+pid).value);
-    if(isNaN(cost)||cost<0){alert("Enter a valid cost price.");return}
-    db.ref('products/'+p.firebaseKey).update({vendorCost:cost}).then(()=>{toast("Cost price saved!");VendorProductsView()}).catch(()=>alert("Failed."));
-  }));
-}
-function VendorHelpView(){
-  setTopbar("Help & Tutorials",true);setActiveTab("");
-  $("#view").innerHTML=`<section style="padding:14px">
-    <h3 style="margin:0 0 12px;font-family:Poppins;color:var(--accentDark)"><i class="fa-solid fa-circle-play"></i> Tutorial Videos</h3>
-    ${VENDOR_HELP_VIDEOS.length===0?'<div class="card pad muted" style="text-align:center">No tutorial videos yet.</div>':VENDOR_HELP_VIDEOS.map(v=>`
-      <a href="${escapeHtml(v.url)}" target="_blank" class="card pad" style="display:flex;align-items:center;gap:12px;margin-bottom:10px">
-        <div style="width:44px;height:44px;border-radius:10px;background:var(--accentLight);display:grid;place-items:center;color:var(--accent);font-size:18px;flex-shrink:0"><i class="fa-solid fa-play"></i></div>
-        <div><div style="font-weight:700">${escapeHtml(v.title)}</div><div class="muted" style="font-size:12px">${escapeHtml(v.category||'')}</div></div>
-      </a>`).join('')}
-    <div class="card pad" style="margin-top:16px">
-      <h4 style="margin:0 0 8px;font-family:Poppins;color:var(--accentDark)">Need more help?</h4>
-      <p class="muted" style="font-size:13px">Contact our vendor support team for anything not covered in the tutorials.</p>
-      <a class="btn btn-outline btn-block" href="#/contact-support">Contact Support</a>
-    </div>
-  </section>`;
-}
-
-function VendorSettingsView(){
-  const v=myVendorRecord();
-  if(!v){routeTo("#/vendor");return}
-  setTopbar("Vendor Settings",true);setActiveTab("");
-  $("#view").innerHTML=`<section style="padding:14px">
-    <div class="card pad">
-      <h3 style="margin:0 0 10px;font-family:Poppins;color:var(--accentDark)">Restaurant Profile</h3>
-      <label>Restaurant Name</label><input id="vs-name" value="${escapeHtml(v.restaurantName||'')}">
-      <label>Address</label><input id="vs-address" value="${escapeHtml(v.address||'')}">
-      <div class="row" style="gap:10px"><div style="flex:1"><label>Opening Time</label>${timePickerHtml('vs-open',v.openingTime||'')}</div><div style="flex:1"><label>Closing Time</label>${timePickerHtml('vs-close',v.closingTime||'')}</div></div>
-      <label>Default Preparation Time (minutes, max ${VENDOR_SETTINGS.maxPrepMinutes||120})</label>
-      <input id="vs-preptime" type="number" min="5" max="${VENDOR_SETTINGS.maxPrepMinutes||120}" value="${v.prepTimeMinutes||30}">
-      <button class="btn btn-block" id="vs-save" style="margin-top:14px">Save Changes</button>
-    </div>
-  </section>`;
-  wireTimePickerOk('vs-open');wireTimePickerOk('vs-close');
-  $("#vs-save").addEventListener("click",()=>{
-    const prepTimeMinutes=Math.min(VENDOR_SETTINGS.maxPrepMinutes||120,Math.max(5,parseInt($("#vs-preptime").value)||30));
-    vendorsRef.child(v.uid).update({restaurantName:$("#vs-name").value.trim(),address:$("#vs-address").value.trim(),openingTime:readTimePicker('vs-open'),closingTime:readTimePicker('vs-close'),prepTimeMinutes}).then(()=>toast("Settings saved!")).catch(()=>alert("Failed."));
-  });
-}
-
-/* ===== Custom Time Picker (fixes Android WebView native time input missing OK/Save button) ===== */
-function timePickerHtml(idPrefix,presetTime){
-  let h12=9,m=0,ap='AM';
-  if(presetTime){
-    const parts=presetTime.split(':');
-    const hh=parseInt(parts[0]);const mm=parseInt(parts[1]);
-    if(!isNaN(hh)&&!isNaN(mm)){ap=hh>=12?'PM':'AM';h12=hh%12===0?12:hh%12;m=mm}
-  }
-  const hours=Array.from({length:12},(_,i)=>i+1);
-  const mins=Array.from({length:60},(_,i)=>i);
-  return `<div class="time-picker-row" style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
-    <select id="${idPrefix}-h" style="flex:1;min-width:64px">${hours.map(x=>`<option value="${x}" ${x===h12?'selected':''}>${String(x).padStart(2,'0')}</option>`).join('')}</select>
-    <span style="font-weight:700">:</span>
-    <select id="${idPrefix}-m" style="flex:1;min-width:64px">${mins.map(x=>`<option value="${x}" ${x===m?'selected':''}>${String(x).padStart(2,'0')}</option>`).join('')}</select>
-    <select id="${idPrefix}-ap" style="flex:1;min-width:70px"><option value="AM" ${ap==='AM'?'selected':''}>AM</option><option value="PM" ${ap==='PM'?'selected':''}>PM</option></select>
-    <button type="button" class="btn btn-sm btn-success" id="${idPrefix}-ok" style="flex-shrink:0"><i class="fa-solid fa-check"></i> OK</button>
-  </div>
-  <div id="${idPrefix}-confirm" class="muted" style="font-size:12px;margin-top:4px;color:var(--success);display:${presetTime?'block':'none'}"><i class="fa-solid fa-circle-check"></i> Saved: <span id="${idPrefix}-confirm-text">${presetTime?formatTime12(presetTime):''}</span></div>`;
-}
-function wireTimePickerOk(idPrefix){
-  const btn=document.getElementById(idPrefix+'-ok');
-  if(!btn)return;
-  btn.addEventListener("click",()=>{
-    const val=readTimePicker(idPrefix);
-    const confirmEl=document.getElementById(idPrefix+'-confirm');
-    const textEl=document.getElementById(idPrefix+'-confirm-text');
-    if(textEl)textEl.textContent=formatTime12(val);
-    if(confirmEl)confirmEl.style.display="block";
-    toast("Time saved: "+formatTime12(val));
-  });
-}
-function readTimePicker(idPrefix){
-  const hEl=document.getElementById(idPrefix+'-h'),mEl=document.getElementById(idPrefix+'-m'),apEl=document.getElementById(idPrefix+'-ap');
-  if(!hEl||!mEl||!apEl)return"";
-  let h24=parseInt(hEl.value)%12;
-  if(apEl.value==='PM')h24+=12;
-  return String(h24).padStart(2,'0')+':'+String(parseInt(mEl.value)).padStart(2,'0');
-}
-function formatTime12(t){
-  if(!t)return'—';
-  const parts=t.split(':');const hh=parseInt(parts[0]),mm=parseInt(parts[1]);
-  if(isNaN(hh)||isNaN(mm))return t;
-  const ap=hh>=12?'PM':'AM';const h12=hh%12===0?12:hh%12;
-  return String(h12).padStart(2,'0')+':'+String(mm).padStart(2,'0')+' '+ap;
-}
-
-function JoinTeamView(){
-  setTopbar("Join Our Team",true);setActiveTab("");
-  const existing=getDeliveryApprovalStatus();
-  if(existing){
-    let statusHtml='';
-    if(existing.status==='Approved')statusHtml=`<div class="notif-banner"><i class="fa-solid fa-circle-check" style="color:var(--success)"></i><div><strong>You're approved!</strong> <a href="#/delivery/dashboard" style="color:var(--accent);font-weight:700">Go to Dashboard &rarr;</a></div></div>`;
-    else if(existing.status==='Pending')statusHtml=`<div class="notif-banner warning"><i class="fa-solid fa-clock" style="color:#F59E0B"></i><div><strong>Application Pending</strong> — Under review.</div></div>`;
-    else statusHtml=`<div class="notif-banner" style="background:#FEE2E2;border-color:#FECACA"><i class="fa-solid fa-circle-xmark" style="color:#E11D48"></i><div><strong>Rejected</strong> — You may re-apply.</div></div>`;
-    if(existing.status!=='Rejected'){$("#view").innerHTML=`<section style="padding:14px">${statusHtml}<div style="margin-top:12px"><a class="btn btn-outline btn-block" href="#/home">Back to Home</a></div></section>`;return}
-  }
-  $("#view").innerHTML=`
-    <section style="padding:14px"><div class="card pad">
-      <div style="text-align:center;margin-bottom:16px">
-        <div style="width:72px;height:72px;border-radius:999px;background:var(--accentLight);display:grid;place-items:center;margin:0 auto 10px"><i class="fa-solid fa-motorcycle" style="font-size:32px;color:var(--accent)"></i></div>
-        <h2 style="margin:0 0 6px;font-family:Poppins;color:var(--accentDark)">Become a Delivery Partner</h2>
-        <p class="muted" style="margin:0">Fill in your details below.</p>
-      </div>
-      <form id="join-team-form">
-        <label>Full Name *</label><input id="jt-name" required>
-        <div class="row" style="gap:10px"><div style="flex:1"><label>Mobile *</label><input id="jt-phone" type="tel" required></div><div style="flex:1"><label>Email *</label><input id="jt-email" type="email" required></div></div>
-        <label>Date of Birth</label><input id="jt-dob" type="date">
-        <label>Current Address *</label><input id="jt-address" required>
-        <div class="row" style="gap:10px"><div style="flex:1"><label>City</label><input id="jt-city"></div><div style="flex:1"><label>Pincode</label><input id="jt-pincode"></div></div>
-        <label>Vehicle *</label><select id="jt-vehicle" required><option value="">Select...</option><option value="bicycle">Bicycle</option><option value="bike">Bike / Scooter</option><option value="car">Car</option><option value="none">No Vehicle</option></select>
-        <label>Driving License</label><input id="jt-license">
-        <label>Previous Work Experience</label><textarea id="jt-experience"></textarea>
-        <label>Availability</label><select id="jt-availability"><option value="full-time">Full Time</option><option value="part-time">Part Time</option><option value="weekends">Weekends Only</option></select>
-        <h3 style="margin:16px 0 8px;font-family:Poppins;color:var(--accentDark)"><i class="fa-solid fa-route"></i> Delivery Zone</h3>
-        <div class="row" style="gap:10px"><div style="flex:1"><label>From *</label><input id="jt-from" required></div><div style="flex:1"><label>To *</label><input id="jt-to" required></div></div>
-        <div id="jt-map" class="map-container" style="margin-top:10px"></div>
-        <input id="jt-from-lat" type="hidden"><input id="jt-from-lng" type="hidden"><input id="jt-to-lat" type="hidden"><input id="jt-to-lng" type="hidden">
-        <div id="jt-map-info" class="muted" style="font-size:12px;margin-top:6px">Tap map: 1st tap = FROM (green), 2nd = TO (red)</div>
-        <div style="margin-top:16px"><button type="submit" class="btn btn-block btn-success"><i class="fa-solid fa-paper-plane"></i> Submit Application</button></div>
-      </form>
-    </div></section>`;
-  if(PROFILE.email)$("#jt-email").value=PROFILE.email;if(PROFILE.name)$("#jt-name").value=PROFILE.name;if(PROFILE.phone)$("#jt-phone").value=PROFILE.phone;
-  setTimeout(()=>{
-    const mapEl = document.getElementById('jt-map');
-    if(mapEl && mapEl._leaflet_id) { mapEl._leaflet_id = null; }
-    
-    const map=L.map('jt-map').setView([20.5937,78.9629],5);
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',{attribution:'&copy; CartoDB'}).addTo(map);
-    let markers=[];let clickCount=0;
-    const greenIcon=L.icon({iconUrl:'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-green.png',shadowUrl:'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',iconSize:[25,41],iconAnchor:[12,41]});
-    const redIcon=L.icon({iconUrl:'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-red.png',shadowUrl:'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',iconSize:[25,41],iconAnchor:[12,41]});
-    map.on('click',e=>{if(clickCount===0){if(markers[0])map.removeLayer(markers[0]);markers[0]=L.marker([e.latlng.lat,e.latlng.lng],{icon:greenIcon}).addTo(map);$("#jt-from-lat").value=e.latlng.lat;$("#jt-from-lng").value=e.latlng.lng;$("#jt-map-info").textContent="FROM set. Now tap TO.";clickCount=1}else{if(markers[1])map.removeLayer(markers[1]);markers[1]=L.marker([e.latlng.lat,e.latlng.lng],{icon:redIcon}).addTo(map);$("#jt-to-lat").value=e.latlng.lat;$("#jt-to-lng").value=e.latlng.lng;$("#jt-map-info").textContent="Both set! Tap again to reset.";clickCount=0}});
-    setTimeout(() => map.invalidateSize(), 300);
-  },200);
-  $("#join-team-form").addEventListener("submit",e=>{
-    e.preventDefault();
-    const name=$("#jt-name").value.trim();const phone=$("#jt-phone").value.trim();const email=$("#jt-email").value.trim();
-    const address=$("#jt-address").value.trim();const vehicle=$("#jt-vehicle").value;
-    const deliveryFrom=$("#jt-from").value.trim();const deliveryTo=$("#jt-to").value.trim();
-    if(!name||!phone||!email||!address||!vehicle||!deliveryFrom||!deliveryTo){alert("Please fill all required fields.");return}
-    
-    if(!PROFILE.email || PROFILE.email.toLowerCase() !== email.toLowerCase()) {
-        PROFILE.name = name;
-        PROFILE.email = email;
-        PROFILE.phone = phone;
-        saveProfile();
-    }
-
-    const appKey=db.ref('deliveryApplications').push().key;
-    const appData={firebaseKey:appKey,name,phone,email,dob:$("#jt-dob").value,address,city:$("#jt-city").value.trim(),pincode:$("#jt-pincode").value.trim(),vehicle,license:$("#jt-license").value.trim(),experience:$("#jt-experience").value.trim(),availability:$("#jt-availability").value,deliveryFrom,deliveryTo,
-      fromCoords:$("#jt-from-lat").value?{lat:Number($("#jt-from-lat").value),lng:Number($("#jt-from-lng").value)}:null,
-      toCoords:$("#jt-to-lat").value?{lat:Number($("#jt-to-lat").value),lng:Number($("#jt-to-lng").value)}:null,
-      status:"Pending",createdAt:Date.now()};
-    db.ref('deliveryApplications/'+appKey).set(appData).then(()=>{
-        updateTabbar();
-        routeTo("#/join-team/success");
-    }).catch(()=>alert("Failed."));
-  });
-}
-function JoinTeamSuccessView(){
-  setTopbar("Application Submitted",true);setActiveTab("");
-  $("#view").innerHTML=`<section class="success-wrap"><div class="check-anim"><i class="fa-solid fa-check" style="font-size:36px"></i></div><div class="confetti" id="confetti"></div><h2 style="font-family:Poppins;margin:12px 0 8px;color:var(--accentDark)">Application Submitted!</h2><div class="muted" style="text-align:center">We'll review and contact you soon.</div><div style="margin-top:16px"><a class="btn btn-block" href="#/home">Back to Home</a></div></section>`;
-  popConfetti();
-}
 
 function ContactSupportView(){
   setTopbar("Contact Support",true);setActiveTab("");
@@ -3035,8 +2717,8 @@ function MyRewardsView(){
   const rewardCard=r=>`<div class="card pad reward-status-card" style="margin-bottom:10px">
     <div class="row"><div style="font-weight:700;color:var(--accentDark)">${escapeHtml(r.rewardName)}</div><div class="chip" style="font-size:11px">${escapeHtml(r.rewardType)}</div></div>
     ${r.code?`<div class="muted" style="font-size:12px;margin-top:4px">Code: <strong>${escapeHtml(r.code)}</strong></div>`:''}
-    <div class="muted" style="font-size:12px;margin-top:2px">Issued: ${r.issuedAt?new Date(r.issuedAt).toLocaleDateString():'—'}${r.expiryAt?' · Expires: '+new Date(r.expiryAt).toLocaleDateString():''}</div>
-    ${r.status==='used'?`<div class="muted" style="font-size:12px;margin-top:4px">Used${r.usedAt?' on '+new Date(r.usedAt).toLocaleDateString():''}${r.orderId?' · Order #'+escapeHtml(r.orderId):''}</div>`:''}
+    <div class="muted" style="font-size:12px;margin-top:2px">Issued: ${r.issuedAt?safeDateText(r.issuedAt):'—'}${r.expiryAt?' · Expires: '+safeDateText(r.expiryAt):''}</div>
+    ${r.status==='used'?`<div class="muted" style="font-size:12px;margin-top:4px">Used${r.usedAt?' on '+safeDateText(r.usedAt):''}${r.orderId?' · Order #'+escapeHtml(r.orderId):''}</div>`:''}
     ${(r.status==='available'||r.status==='pending_redeem')&&(!r.expiryAt||r.expiryAt>now)?`<button class="btn btn-sm btn-outline" style="margin-top:8px" onclick="redeemReward('${r.id}')"><i class="fa-solid fa-eye"></i> View & Redeem</button>`:''}
   </div>`;
   const milestoneCard=x=>{
@@ -3085,7 +2767,7 @@ function showRewardPopup(id){
       <h2 style="margin:0 0 6px;font-family:Poppins;font-size:19px;color:var(--accentDark)">${escapeHtml(r.rewardName)}</h2>
       <p style="margin:0 0 4px;font-size:13px;color:#3a4a44">${typeLabel}</p>
       ${r.code?`<div class="reward-popup-code">${escapeHtml(r.code)}</div>`:''}
-      <p style="margin:6px 0 0;font-size:12px;color:#3a4a44">${r.expiryAt?'Expires '+new Date(r.expiryAt).toLocaleDateString():'No expiry'}</p>
+      <p style="margin:6px 0 0;font-size:12px;color:#3a4a44">${r.expiryAt?'Expires '+safeDateText(r.expiryAt):'No expiry'}</p>
       <p style="margin:10px 0 0;font-size:12px;color:#3a4a44">This reward stays <strong>Ready to Use</strong> until you apply it at checkout and complete an order.</p>
       <button class="btn btn-block" id="reward-popup-checkout" style="margin-top:16px">Use at Checkout</button>
       <button class="btn btn-outline btn-block" id="reward-popup-close" style="margin-top:8px;background:rgba(255,255,255,.5)">Close</button>
@@ -3187,9 +2869,6 @@ function InviteEarnView(){
 }
 function AccountView(){
   setTopbar("My Account",false);setActiveTab("account");
-  const app=getDeliveryApprovalStatus();
-  let notifHtml='';
-  if(app&&app.status==='Approved')notifHtml=`<div class="notif-banner" style="margin-top:12px"><i class="fa-solid fa-circle-check" style="color:var(--success)"></i><div><strong>Delivery Partner Active</strong> — <a href="#/delivery/dashboard" style="color:var(--accent);font-weight:700">Go to Dashboard &rarr;</a></div></div>`;
   $("#view").innerHTML=`
     <section style="padding:0 0 14px">
       <div style="background:var(--accent);padding:20px 14px 24px;border-radius:0 0 20px 20px;color:#fff;display:flex;align-items:center;gap:14px">
@@ -3201,17 +2880,14 @@ function AccountView(){
         </div>
       </div>
       <div style="padding:14px">
-      ${notifHtml}
       <div style="margin:12px -14px 0">${loyaltyCardHtml()}${inviteAndEarnCardHtml()}</div>
       <div class="card pad" style="margin-top:12px">
         <a href="#/profile" class="row" style="padding:10px 0"><div><i class="fa-regular fa-user" style="color:var(--accent)"></i> Edit Profile</div><i class="fa-solid fa-chevron-right"></i></a><div class="sep"></div>
         <a href="#/rewards" class="row" style="padding:10px 0"><div><i class="fa-solid fa-gift" style="color:var(--accent)"></i> My Rewards</div><i class="fa-solid fa-chevron-right"></i></a><div class="sep"></div>
         <a href="#/invite" class="row" style="padding:10px 0"><div><i class="fa-solid fa-user-plus" style="color:var(--accent)"></i> Invite & Earn</div><i class="fa-solid fa-chevron-right"></i></a><div class="sep"></div>
-        <a href="#/vendor" class="row" style="padding:10px 0"><div><i class="fa-solid fa-store" style="color:var(--accent)"></i> Vendor Panel</div><i class="fa-solid fa-chevron-right"></i></a><div class="sep"></div>
         <a href="#/account/orders" class="row" style="padding:10px 0"><div><i class="fa-regular fa-clipboard" style="color:var(--accent)"></i> Order History</div><i class="fa-solid fa-chevron-right"></i></a><div class="sep"></div>
         <a href="#/favorites" class="row" style="padding:10px 0"><div><i class="fa-regular fa-heart" style="color:var(--accent)"></i> My Favorites</div><i class="fa-solid fa-chevron-right"></i></a><div class="sep"></div>
         <div class="row" style="padding:10px 0; cursor:pointer;" onclick="showCityModal()"><div><i class="fa-solid fa-location-dot" style="color:var(--accent)"></i> Change City</div><i class="fa-solid fa-chevron-right"></i></div><div class="sep"></div>
-        <a href="#/join-team" class="row" style="padding:10px 0"><div><i class="fa-solid fa-motorcycle" style="color:var(--accent)"></i> Delivery Partner</div><i class="fa-solid fa-chevron-right"></i></a><div class="sep"></div>
         <a href="#/contact-support" class="row" style="padding:10px 0"><div><i class="fa-solid fa-headset" style="color:var(--accent)"></i> Contact Support</div><i class="fa-solid fa-chevron-right"></i></a>
       </div>
       </div>
@@ -3244,11 +2920,14 @@ function OrdersListView(){
   const rows=[...ORDERS].filter(o=>o.customer&&o.customer.email===PROFILE.email).sort((a,b)=>b.createdAt-a.createdAt);
   $("#view").innerHTML=`<section style="padding:14px">${rows.length===0?`<div class="card pad" style="text-align:center"><div style="font-size:48px;color:var(--accent);margin-bottom:12px"><i class="fa-regular fa-clipboard"></i></div><div class="muted">No orders yet.</div></div>`:rows.map(o=>{
     const delInfo=o.deliveryBoy?`<div class="muted" style="font-size:12px;margin-top:4px"><i class="fa-solid fa-motorcycle" style="color:var(--accent)"></i> ${escapeHtml(o.deliveryBoy.name||'')} — ${escapeHtml(o.deliveryStatus||'')}</div>`:'';
-    return`<a class="card pad" style="display:block;margin-bottom:12px" href="#/account/orders/${o.orderId}"><div class="row"><strong style="color:var(--accentDark)">#${escapeHtml(o.orderId)}</strong><span class="muted">${new Date(o.createdAt).toLocaleString()}</span></div><div class="order-line" style="margin-top:6px"><div class="oi-name muted">${escapeHtml(o.items.map(i=>i.name+" x"+i.qty).join(", "))}</div><div class="oi-price"><strong style="color:var(--accentDark)">${money(o.amount)}</strong></div></div><div class="chip" style="margin-top:8px;background:var(--accentLight);border-color:var(--accent);color:var(--accentDark)">${escapeHtml(o.status)}</div>${delInfo}</a>`}).join("")}</section>`;
+    return`<a class="card pad" style="display:block;margin-bottom:12px" href="#/account/orders/${o.orderId}"><div class="row"><strong style="color:var(--accentDark)">#${escapeHtml(o.orderId)}</strong><span class="muted">${safeDateText(o.createdAt,"datetime")}</span></div><div class="order-line" style="margin-top:6px"><div class="oi-name muted">${escapeHtml(o.items.map(i=>i.name+" x"+i.qty).join(", "))}</div><div class="oi-price"><strong style="color:var(--accentDark)">${money(o.amount)}</strong></div></div><div class="chip" style="margin-top:8px;background:var(--accentLight);border-color:var(--accent);color:var(--accentDark)">${escapeHtml(o.status)}</div>${delInfo}</a>`}).join("")}</section>`;
 }
 
+
+function deliveryReviewHtml(o){if(!o||o.deliveryStatus!=="Delivered"||!o.deliveryBoy)return"";const current=Number(o.deliveryReview?.rating||0);return `<div class="card pad" style="margin-top:12px"><h4 style="margin:0 0 8px;font-family:Poppins;color:var(--accentDark)"><i class="fa-solid fa-motorcycle"></i> Rate Delivery Partner</h4><div id="delivery-rate-stars" style="font-size:24px;color:#ccc">${[1,2,3,4,5].map(i=>`<i class="fa-solid fa-star ${i<=current?'active':''}" data-delivery-rating="${i}" style="cursor:pointer"></i>`).join('')}</div><textarea id="delivery-review-text" placeholder="Optional delivery review" style="margin-top:8px">${escapeHtml(o.deliveryReview?.text||'')}</textarea><button class="btn btn-block" id="save-delivery-review" style="margin-top:8px">Save Review</button></div>`}
 function OrderDetailView(orderId){
   const o=ORDERS.find(x=>x.orderId===orderId);if(!o){OrdersListView();return}
+  window.__zestoDeliveryReviewKey=o.firebaseKey;
   setTopbar("Order Detail",true);setActiveTab("");
   
   const sub=o.items.reduce((a,it)=>a+((it.price||0)*it.qty),0);
@@ -3271,6 +2950,7 @@ function OrderDetailView(orderId){
           const timerEl = document.getElementById(`order-detail-timer-${o.orderId}`);
           if(!timerEl) return;
           
+          let intv;
           const updateTimer = () => {
               if(!document.getElementById(`order-detail-timer-${o.orderId}`)) return clearInterval(intv);
               // Re-fetch live order data to get the latest prepTimeMinutes (vendor may have updated it)
@@ -3289,11 +2969,11 @@ function OrderDetailView(orderId){
               }
           };
           updateTimer();
-          const intv = setInterval(updateTimer, 1000);
+          intv = setInterval(updateTimer, 1000);
       }, 100);
   }
 
-  const isActiveTracking = !!(o.deliveryBoy&&o.deliveryLocation&&o.liveLocation&&(o.deliveryStatus==='Picked Up'||o.deliveryStatus==='On the Way'));
+  const isActiveTracking = !!(o.deliveryBoy&&o.deliveryLocation&&safeDateValue(o.liveLocation?.updatedAt||o.liveLocation?.timestamp)&&Date.now()-Number(o.liveLocation.updatedAt||o.liveLocation.timestamp)<120000&&(o.deliveryStatus==='Picked Up'||o.deliveryStatus==='On the Way'||o.deliveryStatus==='Near Customer'||o.deliveryStatus==='Going to Restaurant'||o.deliveryStatus==='Arrived at Restaurant'));
   let trackingHtml='';
   if(isActiveTracking){
     const distKm=haversineKm(o.liveLocation.lat,o.liveLocation.lng,o.deliveryLocation.lat,o.deliveryLocation.lng);
@@ -3331,12 +3011,12 @@ function OrderDetailView(orderId){
     ${trackingHtml}
     ${timelineHtml}
     <div class="card pad">
-    <div class="row"><div><strong style="color:var(--accentDark)">Order</strong> #${escapeHtml(o.orderId)}</div><div class="muted">${new Date(o.createdAt).toLocaleString()}</div></div><div class="sep"></div>
+    <div class="row"><div><strong style="color:var(--accentDark)">Order</strong> #${escapeHtml(o.orderId)}</div><div class="muted">${safeDateText(o.createdAt,"datetime")}</div></div><div class="sep"></div>
     ${o.items.map(it=>`<div class="order-line"><div class="oi-name">${escapeHtml(it.name)} <span class="muted">x${it.qty}</span></div><div class="oi-price" style="color:var(--accentDark)">${money((it.price||0)*it.qty+(typeof it.shipping === 'number' ? it.shipping : 50))}</div></div>`).join("")}
     <div class="sep"></div>
     <div class="row"><strong>Total</strong><strong style="color:var(--accentDark)">${money(o.amount)}</strong></div>
     <div class="chip" style="margin-top:8px;background:var(--accentLight);color:var(--accentDark)">${escapeHtml(o.status)}</div>
-  </div>${delHtml}<div style="margin-top:12px"><a class="btn btn-outline" href="#/account/orders"><i class="fa-solid fa-arrow-left"></i> Back</a></div></section>`;
+  </div>${delHtml}${deliveryReviewHtml(o)}<div style="margin-top:12px"><a class="btn btn-outline" href="#/account/orders"><i class="fa-solid fa-arrow-left"></i> Back</a></div></section>`;
 
   if(isActiveTracking){
     setTimeout(()=>{
@@ -3358,6 +3038,8 @@ function OrderDetailView(orderId){
   }
 }
 
+
+document.addEventListener('click',e=>{const st=e.target.closest('[data-delivery-rating]');if(st){const box=document.getElementById('delivery-rate-stars');const n=Number(st.dataset.deliveryRating);box?.querySelectorAll('[data-delivery-rating]').forEach(x=>x.classList.toggle('active',Number(x.dataset.deliveryRating)<=n));box?.setAttribute('data-selected',String(n));}if(e.target.closest('#save-delivery-review')){const btn=e.target.closest('#save-delivery-review');const box=document.getElementById('delivery-rate-stars');const key=window.__zestoDeliveryReviewKey;if(!key||!box)return;const rating=Number(box.getAttribute('data-selected')||0);if(!rating){alert('Please select a rating.');return}db.ref('orders/'+key+'/deliveryReview').set({rating,text:(document.getElementById('delivery-review-text')?.value||'').trim(),createdAt:Date.now()}).then(()=>toast('Delivery review saved!'));}});
 async function compressToDataURL(file,maxW=1200,maxH=1200,quality=.85){const img=await fileToImage(file);const[w,h]=fitRect(img.naturalWidth,img.naturalHeight,maxW,maxH);const c=document.createElement("canvas");c.width=w;c.height=h;c.getContext("2d").drawImage(img,0,0,w,h);return c.toDataURL("image/jpeg",quality)}
 function fitRect(w,h,mW,mH){const r=Math.min(mW/w,mH/h,1);return[Math.round(w*r),Math.round(h*r)]}
 function fileToImage(file){return new Promise((res,rej)=>{const fr=new FileReader();fr.onload=()=>{const img=new Image();img.onload=()=>res(img);img.onerror=rej;img.src=fr.result};fr.onerror=rej;fr.readAsDataURL(file)})}
@@ -3406,63 +3088,6 @@ function calculateETA(distance,avgSpeed=40){
   return h+"h "+m+"m";
 }
 
-function DeliveryLiveMapView(orderKey){
-  const decodedKey=decodeURIComponent(orderKey);
-  const order=ORDERS.find(o=>o.firebaseKey===decodedKey);
-  if(!order||!order.customer){routeTo("#/delivery/my-orders");return}
-  
-  setTopbar("Live Navigation",true);setActiveTab("");
-  
-  const dlat=order.customer.lat;
-  const dlng=order.customer.lng;
-  const clat=order.liveLocation?.lat||USER_LIVE_LOCATION?.lat||20.5937;
-  const clng=order.liveLocation?.lng||USER_LIVE_LOCATION?.lng||78.9629;
-  const distance=calculateDistance(clat,clng,dlat,dlng);
-  const eta=calculateETA(distance);
-  
-  $("#view").innerHTML=`
-    <section style="padding:14px">
-      <div class="card pad">
-        <div class="row" style="margin-bottom:14px">
-          <div><strong>${escapeHtml(order.customer.name)}</strong><div class="muted" style="font-size:12px">#${escapeHtml(order.orderId)}</div></div>
-          <div style="text-align:right"><strong style="color:var(--accent)">${distance} km</strong><div class="muted" style="font-size:12px">ETA: ${eta}</div></div>
-        </div>
-        <div id="live-nav-map" class="map-container" style="height:280px;margin-bottom:12px"></div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">
-          <div style="background:var(--accentLight);border-radius:10px;padding:10px;text-align:center"><div class="muted" style="font-size:11px">Distance</div><div style="font-weight:700;color:var(--accent);font-size:18px">${distance} km</div></div>
-          <div style="background:#E0F2FE;border-radius:10px;padding:10px;text-align:center"><div class="muted" style="font-size:11px">ETA</div><div style="font-weight:700;color:#0284C7;font-size:16px">${eta}</div></div>
-        </div>
-        <div style="background:#fff;border:1px solid var(--line);border-radius:10px;padding:12px;margin-bottom:12px">
-          <div class="row" style="margin-bottom:8px"><strong>Delivery Address</strong></div>
-          <div class="muted" style="font-size:13px">${escapeHtml(order.customer.address)}<br>${escapeHtml(order.customer.city)} ${escapeHtml(order.customer.pincode)}</div>
-          <div class="muted" style="font-size:11px;margin-top:6px"><i class="fa-solid fa-phone"></i> ${escapeHtml(order.customer.phone)}</div>
-        </div>
-        <button class="btn btn-block btn-outline" onclick="routeTo('#/delivery/my-orders')"><i class="fa-solid fa-arrow-left"></i> Back to Orders</button>
-      </div>
-    </section>`;
-  
-  setTimeout(()=>{
-    const mapEl=document.getElementById('live-nav-map');
-    if(!mapEl)return;
-    if(mapEl._leaflet_id)mapEl._leaflet_id=null;
-    try{
-      const map=L.map('live-nav-map',{zoomControl:false}).setView([clat,clng],14);
-      L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',{attribution:'&copy; CartoDB'}).addTo(map);
-      
-      const deliveryBoyIcon=L.divIcon({html:'<div style="background:var(--accent);color:#fff;width:40px;height:40px;border-radius:50%;display:grid;place-items:center;box-shadow:0 2px 8px rgba(0,0,0,.3);font-size:18px;border:3px solid #fff"><i class="fa-solid fa-motorcycle"></i></div>',className:'',iconSize:[40,40]});
-      const customerIcon=L.divIcon({html:'<div style="background:#E11D48;color:#fff;width:36px;height:36px;border-radius:50%;display:grid;place-items:center;box-shadow:0 2px 8px rgba(0,0,0,.3);font-size:16px;border:3px solid #fff"><i class="fa-solid fa-house"></i></div>',className:'',iconSize:[36,36]});
-      
-      L.marker([clat,clng],{icon:deliveryBoyIcon}).addTo(map).bindPopup('You are here');
-      L.marker([dlat,dlng],{icon:customerIcon}).addTo(map).bindPopup('Delivery Location');
-      L.polyline([[clat,clng],[dlat,dlng]],{color:'var(--accent)',weight:4,dashArray:'6,6',opacity:.7}).addTo(map);
-      
-      map.fitBounds([[clat,clng],[dlat,dlng]],{padding:[50,50]});
-      setTimeout(()=>map.invalidateSize(),200);
-      
-      if(!liveLocationIntervalId)startLiveLocationTracking(decodedKey);
-    }catch(err){console.warn("Live map init failed:",err)}
-  },100);
-}
 
 const chatbotToggle=$("#chatbot-toggle"),chatbotPopup=$("#chatbot-popup"),chatbotClose=$("#chatbot-close"),chatbotBody=$("#chatbot-body"),chatbotQuestions=$("#chatbot-questions");
 const FAQ_DATA=[{q:"How can I place an order?",a:"Browse our menu, add items to cart, and checkout."},{q:"What are your payment options?",a:"We accept Cash on Delivery and Online Payment via UPI."},{q:"How to become a delivery partner?",a:"Visit 'Join Our Team' from Home or Account section."},{q:"How to contact support?",a:"Email us at sahpaufoodstore@gmail.com or call us at +91 96342 58114."}];
@@ -3474,17 +3099,27 @@ chatbotClose.addEventListener('click',()=>{chatbotPopup.classList.remove('visibl
 
 function render(){
   const{parts}=parseRoute();
-  if(!dataFetched.products||!dataFetched.orders||!dataFetched.ratings||!dataFetched.config){showLoader();return}
+  // Never block the entire application on a secondary Firebase listener.
+  // Products/config may be temporarily unavailable; the app must still render.
   hideSplash();
   initAuthListenerOnce();
   const[r,id,sub]=parts;
   const authScreens=["login","signup","forgot-password"];
-  if(getAuth()&&!authBootHandled){showLoader();return}
-  if(getAuth()&&!AUTH_USER&&!authScreens.includes(r)){routeTo("#/login");return}
-  if(isApprovedVendor()&&!["vendor","login","signup","forgot-password"].includes(r)){routeTo("#/vendor/dashboard");return}
+  // Firebase Auth is the single source of truth for login state. Its initial
+  // check is asynchronous, so AUTH_USER is only trustworthy once authBootHandled
+  // is true (set inside onAuthStateChanged's first callback). Redirecting to
+  // login before that point would incorrectly bounce an already-logged-in user
+  // (persisted session not yet confirmed) — this was the source of the unstable
+  // login state / "flicker" bug. Once authBootHandled flips true, onAuthStateChanged
+  // already triggers a fresh render(), so this guard re-evaluates correctly.
+  if(getAuth()&&authBootHandled&&!AUTH_USER&&!authScreens.includes(r)){
+    console.log("[auth] blocking protected route '"+r+"' — no AUTH_USER, redirecting to login");
+    routeTo("#/login");return;
+  }
+  const catalogScreens=["home","shop","product","offers","offer","cart"];
   updateTabbar();
   renderCartBar();
-  if(!(r==="delivery"&&id==="available")&&!(r==="vendor"&&id==="orders"))stopRingtone();
+  stopRingtone();
   if(!r||r==="home")HomeView();
   else if(r==="shop")ShopView(id?decodeURIComponent(id):null);
   else if(r==="product"&&id)ProductView(id);
@@ -3507,22 +3142,9 @@ function render(){
   else if(r==="account")AccountView();
   else if(r==="profile"&&id==="setup")ProfileEditView(true);
   else if(r==="profile")ProfileEditView(false);
-  else if(r==="join-team"&&id==="success")JoinTeamSuccessView();
-  else if(r==="join-team")JoinTeamView();
   else if(r==="contact-support")ContactSupportView();
-  else if(r==="delivery"&&id==="dashboard")DeliveryDashboardView();
-  else if(r==="delivery"&&id==="available")DeliveryAvailableView();
-  else if(r==="delivery"&&id==="my-orders"){DeliveryMyOrdersView()}
-  else if(r==="delivery"&&id==="live-map"&&sub){DeliveryLiveMapView(sub)}
-  else if(r==="vendor"&&!id)VendorEntryView();
-  else if(r==="vendor"&&id==="register")VendorRegisterView();
-  else if(r==="vendor"&&id==="subscription")VendorSubscriptionView();
-  else if(r==="vendor"&&id==="dashboard")VendorDashboardView();
-  else if(r==="vendor"&&id==="orders")VendorOrdersView();
-  else if(r==="vendor"&&id==="products")VendorProductsView();
-  else if(r==="vendor"&&id==="help")VendorHelpView();
-  else if(r==="vendor"&&id==="settings")VendorSettingsView();
   else ShopView();
+  setTimeout(zestoBindDraftPersistence,0);
 }
 
 // Initializing the app - Loader starts immediately to prevent blank screen
@@ -3532,12 +3154,22 @@ function render(){
     const refFromLink=params.get('ref');
     if(refFromLink)writeLocal("sf_referral_code",refFromLink.toUpperCase());
   }catch(e){}
-  if(location.hash && location.hash!=="#/home" && location.hash!=="#/"){
+  const nav=performance.getEntriesByType("navigation")[0];
+  const isReload=nav&&nav.type==="reload";
+  // A fresh app launch should always land on Home. A real browser refresh
+  // keeps the exact current route (Account, Orders, Profile, etc.).
+  // IMPORTANT: Only redirect to /home on fresh launch, never on reload
+  if(!location.hash){
     history.replaceState(null,"",location.pathname+location.search+"#/home");
   }
+  zestoLoadCatalogCache();
   fetchLiveLocation(false);
-  showLoader(); checkCitySelection(); checkAndRender();
+  initAuthListenerOnce();
+  // Render immediately. The splash is only visual; Firebase data fills sections as it arrives.
+  checkCitySelection();
+  checkAndRender();
 })();
+
 </script>
 </body>
 </html>
